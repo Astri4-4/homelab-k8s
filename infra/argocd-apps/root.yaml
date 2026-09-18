@@ -1,3 +1,4 @@
+
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -7,7 +8,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/Astri4-4/homelab-k8s.git
-    targetRevision: main
+    targetRevision: master
     path: infra/argocd-apps
   destination:
     server: https://kubernetes.default.svc
