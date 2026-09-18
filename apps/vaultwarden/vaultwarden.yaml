@@ -38,7 +38,7 @@ spec:
             - containerPort: 80
           env:
             - name: DOMAIN
-              value: "https://vault.sachaguerin.fr"
+              value: "https://vaultwarden.sachaguerin.fr"
             - name: SIGNUPS_ALLOWED
               value: "false"
           volumeMounts:
@@ -73,10 +73,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - vault.sachaguerin.fr
+        - vaultwarden.sachaguerin.fr
       secretName: vaultwarden-tls
   rules:
-    - host: vault.sachaguerin.fr
+    - host: vaultwarden.sachaguerin.fr
       http:
         paths:
           - path: /
