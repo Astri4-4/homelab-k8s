@@ -156,7 +156,7 @@ spec:
             - name: REDIS_HOST
               value: redis
             - name: NEXTCLOUD_TRUSTED_DOMAINS
-              value: "nextcloud.sachaguerin.fr"
+              value: "nc.sachaguerin.fr"
             - name: OVERWRITEPROTOCOL
               value: "https"
           ports:
@@ -218,10 +218,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - nextcloud.sachaguerin.fr
+        - nc.sachaguerin.fr
       secretName: nextcloud-tls
   rules:
-    - host: nextcloud.sachaguerin.fr
+    - host: nc.sachaguerin.fr
       http:
         paths:
           - path: /
