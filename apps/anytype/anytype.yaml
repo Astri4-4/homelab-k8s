@@ -18,6 +18,10 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       nodeSelector:
         kubernetes.io/hostname: talosmaster   # pin sur le même nœud que l'IP annoncée
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
       containers:
         - name: any-sync-bundle
           image: ghcr.io/grishy/any-sync-bundle:1.2.1-2025-12-10
