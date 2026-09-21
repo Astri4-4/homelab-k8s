@@ -24,7 +24,7 @@ spec:
           image: ghcr.io/grishy/any-sync-bundle:1.2.1-2025-12-10
           env:
             - name: ANY_SYNC_BUNDLE_INIT_EXTERNAL_ADDRS
-              value: "192.168.1.120"   # IP LAN à ajuster
+              value: "192.168.10.121"   # IP LAN à ajuster
           ports:
             - name: drpc
               containerPort: 33010
