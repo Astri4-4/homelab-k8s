@@ -24,7 +24,7 @@ spec:
           effect: NoSchedule
       containers:
         - name: any-sync-bundle
-          image: ghcr.io/grishy/any-sync-bundle:1.2.1-2025-12-10
+          image: ghcr.io/grishy/any-sync-bundle:1.6.0-2026-08-18
           env:
             - name: ANY_SYNC_BUNDLE_INIT_EXTERNAL_ADDRS
               value: "192.168.10.120"
