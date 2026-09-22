@@ -44,5 +44,5 @@ jobs:
             PACK_URL=${{ env.PACK_URL }}
             PACK_VERSION=${{ env.PACK_VERSION }}
           tags: |
-            ghcr.io/${{ github.repository_owner }}/atm10:${{ env.PACK_VERSION }}
-            ghcr.io/${{ github.repository_owner }}/atm10:latest
+            ghcr.io/astri4-4/atm10:${{ env.PACK_VERSION }}
+            ghcr.io/astri4-4/atm10:latest
