@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mc-atm10
+  namespace: minecraft
+spec:
+  serviceName: mc-atm10
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mc-atm10
+  template:
+    metadata:
+      labels:
+        app: mc-atm10
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      nodeSelector:
+        kubernetes.io/hostname: talosnode1
+      containers:
+        - name: mc-atm10
+          image: itzg/minecraft-server:latest
+          env:
+            - name: EULA
+              value: "TRUE"
+            - name: TYPE
+              value: "AUTO_CURSEFORGE"
+            - name: CF_SLUG
+              value: "all-the-mods-10"
+            - name: CF_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: curseforge-api-key
+                  key: CF_API_KEY
+            - name: MEMORY
+              value: "10G"
+            - name: USE_AIKAR_FLAGS
+              value: "true"
+          ports:
+            - name: minecraft
+              containerPort: 25565
+              protocol: TCP
+          resources:
+            requests:
+              cpu: "2"
+              memory: "10Gi"
+            limits:
+              cpu: "4"
+              memory: "12Gi"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            tcpSocket:
+              port: 25565
+            initialDelaySeconds: 60
+            periodSeconds: 15
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: longhorn
+        resources:
+          requests:
+            storage: 20Gi
