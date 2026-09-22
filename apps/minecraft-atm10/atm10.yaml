@@ -38,6 +38,7 @@ spec:
       containers:
         - name: mc
           image: ghcr.io/astri4-4/atm10:8.1
+          imagePullPolicy: Always
           stdin: true
           tty: true
           env:

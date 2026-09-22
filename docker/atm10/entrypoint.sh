@@ -12,11 +12,17 @@ if [ "$(cat .pack-version 2>/dev/null || true)" != "$PACK_VERSION" ]; then
     [ -f "$f" ] && cp "$f" "/tmp/$f"
   done
   rm -rf mods libraries config defaultconfigs kubejs packmenu
-  cp -a /opt/server/. /data/
+  # On copie entree par entree : cp -a sur /data/. echoue car la racine
+  # du volume appartient a root et le conteneur tourne en UID 1000.
+  for item in /opt/server/* /opt/server/.[!.]*; do
+    [ -e "$item" ] || continue
+    cp -a "$item" /data/
+  done
   for f in server.properties whitelist.json ops.json banned-players.json banned-ips.json; do
     [ -f "/tmp/$f" ] && cp "/tmp/$f" "$f"
   done
   echo "$PACK_VERSION" > .pack-version
+  echo ">> Pack deploye : $(ls -1 mods | wc -l) mods"
 fi
 
 # Valeurs par defaut au tout premier demarrage seulement.
