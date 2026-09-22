@@ -10,24 +10,52 @@ RUN apt-get update \
 
 WORKDIR /opt/server
 
-# Telecharge le Server Pack ATM10 et installe NeoForge au build.
-# La version de NeoForge est lue dans variables.txt du pack : rien a coder en dur.
-RUN set -eux; \
-    curl -fsSL "$PACK_URL" -o /tmp/pack.zip; \
+RUN set -eu; \
+    echo ">>> Telechargement $PACK_URL"; \
+    curl -fL --retry 3 --retry-all-errors -A "Mozilla/5.0" "$PACK_URL" -o /tmp/pack.zip; \
+    ls -lh /tmp/pack.zip; \
     unzip -q /tmp/pack.zip -d /tmp/p; \
     rm /tmp/pack.zip; \
     src=/tmp/p; \
-    if [ "$(ls -1 /tmp/p | wc -l)" = "1" ] && [ -d "/tmp/p/$(ls -1 /tmp/p)" ]; then src="/tmp/p/$(ls -1 /tmp/p)"; fi; \
+    if [ "$(ls -1 /tmp/p | wc -l)" = "1" ] && [ -d "/tmp/p/$(ls -1 /tmp/p)" ]; then \
+      src="/tmp/p/$(ls -1 /tmp/p)"; \
+    fi; \
     cp -a "$src"/. /opt/server/; \
     rm -rf /tmp/p; \
-    NF=$(grep -hoE '^[A-Z_]*(MODLOADER|NEOFORGE)_VERSION=.*' variables.txt 2>/dev/null | head -1 | cut -d= -f2 | tr -d '\r"'); \
-    if [ -z "$NF" ]; then echo "NeoForge version introuvable dans variables.txt"; cat variables.txt || true; exit 1; fi; \
-    echo "NeoForge $NF"; \
-    curl -fsSL "https://maven.neoforged.net/releases/net/neoforged/neoforge/${NF}/neoforge-${NF}-installer.jar" -o installer.jar; \
-    java -jar installer.jar --installServer; \
-    rm -f installer.jar installer.jar.log; \
-    rm -f startserver.sh startserver.bat run.bat server-setup-config.yaml; \
-    echo "$NF" > /opt/server/.neoforge-version
+    echo ">>> Contenu du pack :"; ls -la /opt/server; \
+    \
+    NF=""; \
+    if [ -f variables.txt ]; then \
+      NF=$(grep -hoE '(MODLOADER|NEOFORGE)_VERSION=[^ ]*' variables.txt | head -1 | cut -d= -f2 | tr -d '\r"' || true); \
+    fi; \
+    if [ -z "$NF" ] && [ -f server-setup-config.yaml ]; then \
+      NF=$(grep -oE 'neoforge-[0-9][0-9.]*' server-setup-config.yaml | head -1 | cut -d- -f2 || true); \
+    fi; \
+    if [ -z "$NF" ] && [ -d libraries/net/neoforged/neoforge ]; then \
+      NF=$(ls -1 libraries/net/neoforged/neoforge | head -1 || true); \
+    fi; \
+    if [ -z "$NF" ]; then \
+      NF=$(ls -1 | grep -oE 'neoforge-[0-9][0-9.]*' | head -1 | cut -d- -f2 || true); \
+    fi; \
+    if [ -z "$NF" ]; then \
+      echo "!!! Version NeoForge introuvable. Fichiers a la racine :"; ls -la; \
+      for f in variables.txt server-setup-config.yaml; do \
+        [ -f "$f" ] && { echo "--- $f ---"; cat "$f"; }; \
+      done; \
+      exit 1; \
+    fi; \
+    echo ">>> NeoForge $NF"; \
+    \
+    if [ ! -f "libraries/net/neoforged/neoforge/$NF/unix_args.txt" ]; then \
+      curl -fL --retry 3 \
+        "https://maven.neoforged.net/releases/net/neoforged/neoforge/${NF}/neoforge-${NF}-installer.jar" \
+        -o installer.jar; \
+      java -jar installer.jar --installServer; \
+      rm -f installer.jar installer.jar.log; \
+    fi; \
+    rm -f startserver.sh startserver.bat start.sh start.bat run.bat; \
+    echo "$NF" > /opt/server/.neoforge-version; \
+    echo ">>> Mods : $(ls -1 mods 2>/dev/null | wc -l)"
 
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh && chown -R 1000:1000 /opt/server
