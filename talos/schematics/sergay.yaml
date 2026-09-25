@@ -1,0 +1,9 @@
+# Schematic Image Factory — sergay / talosnode1 (worker)
+# GPU : RTX 4060 (Ada) -> modules open NVIDIA, branche production (595.x)
+# Générer l'ID : curl -sX POST --data-binary @talos/schematics/sergay.yaml https://factory.talos.dev/schematics
+customization:
+  systemExtensions:
+    officialExtensions:
+      - siderolabs/iscsi-tools
+      - siderolabs/nvidia-open-gpu-kernel-modules-production
+      - siderolabs/nvidia-container-toolkit-production

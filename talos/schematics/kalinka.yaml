@@ -1,0 +1,11 @@
+# Schematic Image Factory — kalinka / talosmaster (control-plane)
+# GPU : GTX 1050 (Pascal) -> modules propriétaires, branche LTS (580.x).
+#   - la branche production (595.x) ne supporte plus Pascal
+#   - les modules open ne supportent pas Pascal (Turing et + uniquement)
+# Générer l'ID : curl -sX POST --data-binary @talos/schematics/kalinka.yaml https://factory.talos.dev/schematics
+customization:
+  systemExtensions:
+    officialExtensions:
+      - siderolabs/iscsi-tools
+      - siderolabs/nonfree-kmod-nvidia-lts
+      - siderolabs/nvidia-container-toolkit-lts
