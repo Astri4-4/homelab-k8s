@@ -1,5 +1,7 @@
 # Patch machine config commun aux deux nœuds GPU (kalinka + sergay)
 # talosctl -n <ip> patch mc --patch @talos/patches/nvidia-gpu.yaml
+# Label du device plugin posé à part (conflit machine.nodeLabels sous Talos 1.14) :
+#   kubectl label node <node> nvidia.com/gpu.present=true
 machine:
   kernel:
     modules:
@@ -10,6 +12,3 @@ machine:
   sysctls:
     # requis par nvidia-container-cli (programmes BPF)
     net.core.bpf_jit_harden: 1
-  nodeLabels:
-    # utilisé par le nodeSelector du NVIDIA device plugin
-    nvidia.com/gpu.present: "true"
