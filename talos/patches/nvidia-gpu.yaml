@@ -1,0 +1,15 @@
+# Patch machine config commun aux deux nœuds GPU (kalinka + sergay)
+# talosctl -n <ip> patch mc --patch @talos/patches/nvidia-gpu.yaml
+machine:
+  kernel:
+    modules:
+      - name: nvidia
+      - name: nvidia_uvm
+      - name: nvidia_drm
+      - name: nvidia_modeset
+  sysctls:
+    # requis par nvidia-container-cli (programmes BPF)
+    net.core.bpf_jit_harden: 1
+  nodeLabels:
+    # utilisé par le nodeSelector du NVIDIA device plugin
+    nvidia.com/gpu.present: "true"
