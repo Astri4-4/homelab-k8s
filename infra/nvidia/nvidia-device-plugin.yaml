@@ -36,6 +36,8 @@ spec:
           env:
             - name: FAIL_ON_INIT_ERROR
               value: "false"
+            - name: CONFIG_FILE
+              value: /config/config.yaml
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -43,8 +45,24 @@ spec:
           volumeMounts:
             - name: kubelet-device-plugins-dir
               mountPath: /var/lib/kubelet/device-plugins
+            - name: plugin-config
+              mountPath: /config
       volumes:
         - name: kubelet-device-plugins-dir
           hostPath:
             path: /var/lib/kubelet/device-plugins
             type: Directory
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nvidia-device-plugin-config
+  namespace: kube-system
+data:
+  config.yaml: |
+    version: v1
+    sharing:
+      timeSlicing:
+        resources:
+          - name: nvidia.com/gpu
+            replicas: 4
