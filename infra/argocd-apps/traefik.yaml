@@ -27,6 +27,10 @@ spec:
             port: 80
           websecure:
             port: 443
+          traefik:
+            port: 9000
+          metrics:
+            port: 9101
         securityContext:
           capabilities:
             drop: [ALL]
