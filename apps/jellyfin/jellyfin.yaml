@@ -20,9 +20,9 @@ spec:
     - noserverino
   csi:
     driver: smb.csi.k8s.io
-    volumeHandle: 192.168.10.33/jelly##jellyfin   # doit être unique dans le cluster
+    volumeHandle: 192.168.10.33/Jelly##jellyfin   # doit être unique dans le cluster
     volumeAttributes:
-      source: //192.168.10.33/jelly
+      source: //192.168.10.33/Jelly
     nodeStageSecretRef:
       name: smb-jelly
       namespace: jellyfin
