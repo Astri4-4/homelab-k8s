@@ -34,7 +34,7 @@ spec:
             - name: HERMES_DASHBOARD
               value: "1"
             - name: API_SERVER_ENABLED
-              value: true
+              value: "true"
             - name: API_SERVER_HOST
               value: "0.0.0.0"
           envFrom:
