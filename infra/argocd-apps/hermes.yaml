@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: <your homelab-k8s repo URL>
+    repoURL: https://github.com/Astri4-4/homelab-k8s
     targetRevision: master
     path: apps/hermes
   destination:
