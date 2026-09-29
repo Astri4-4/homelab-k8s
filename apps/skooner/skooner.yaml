@@ -1,0 +1,43 @@
+# Skooner — dashboard K8s (LAN uniquement, NodePort 30465)
+# Métriques CPU/RAM fournies par metrics-server (déjà déployé)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: skooner
+  namespace: skooner
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: skooner }
+  template:
+    metadata:
+      labels: { app: skooner }
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      containers:
+        - name: skooner
+          image: ghcr.io/skooner-k8s/skooner:stable
+          ports:
+            - { name: http, containerPort: 4654 }
+          livenessProbe:
+            httpGet: { path: /, port: 4654 }
+            initialDelaySeconds: 30
+            timeoutSeconds: 30
+          readinessProbe:
+            httpGet: { path: /, port: 4654 }
+            initialDelaySeconds: 5
+          resources:
+            requests: { cpu: 10m, memory: 64Mi }
+            limits: { memory: 256Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: skooner
+  namespace: skooner
+spec:
+  type: NodePort
+  selector: { app: skooner }
+  ports:
+    - { name: http, port: 80, targetPort: 4654, nodePort: 30465 }
