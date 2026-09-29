@@ -1,0 +1,55 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dns
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: adguard-data
+  namespace: dns
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: adguard
+  namespace: dns
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: { app: adguard }
+  template:
+    metadata:
+      labels: { app: adguard }
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      nodeSelector:
+        kubernetes.io/hostname: talosnode1
+      containers:
+        - name: adguard
+          image: adguard/adguardhome:v0.107.57
+          ports:
+            - { containerPort: 53, protocol: UDP }
+            - { containerPort: 53, protocol: TCP }
+            - { containerPort: 3000, protocol: TCP }   # assistant d'installation
+          volumeMounts:
+            - { name: data, mountPath: /opt/adguardhome/work, subPath: work }
+            - { name: data, mountPath: /opt/adguardhome/conf, subPath: conf }
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { memory: 512Mi }
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: adguard-data
