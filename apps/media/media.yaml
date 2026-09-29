@@ -135,7 +135,7 @@ spec:
                 secretKeyRef: { name: nordvpn, key: WIREGUARD_PRIVATE_KEY }
             - { name: SERVER_COUNTRIES, value: "Switzerland,Netherlands" }
             # Ports accessibles depuis le cluster : WebUI qBit + proxy HTTP
-            - { name: FIREWALL_INPUT_PORTS, value: "30808,8888" }
+            - { name: FIREWALL_INPUT_PORTS, value: "30808,8888,8191" }
             # Réponses vers pods / services / LAN routées hors tunnel
             - { name: FIREWALL_OUTBOUND_SUBNETS, value: "10.244.0.0/16,10.96.0.0/12,192.168.10.0/24,192.168.0.0/24" }
             # Proxy HTTP utilisé par Prowlarr pour passer les indexeurs dans le VPN
@@ -168,6 +168,14 @@ spec:
           volumeMounts:
             - { name: config, mountPath: /config }
             - { name: data, mountPath: /data }
+        # FlareSolverr dans le namespace réseau de Gluetun -> sort par NordVPN
+        - name: flaresolverr
+          image: ghcr.io/flaresolverr/flaresolverr:latest
+          env:
+            - { name: TZ, value: Europe/Paris }
+            - { name: LOG_LEVEL, value: info }
+          ports:
+            - { name: flaresolverr, containerPort: 8191 }
       volumes:
         - name: tun
           hostPath: { path: /dev/net/tun, type: CharDevice }
@@ -313,30 +321,12 @@ spec:
   ports: [{ name: http, port: 9696, targetPort: 9696, nodePort: 30696 }]
 ---
 # =====================================================================
-#  FlareSolverr (contourne Cloudflare pour certains indexeurs)
+#  FlareSolverr : tourne dans le pod qbittorrent (derrière Gluetun)
 # =====================================================================
-apiVersion: apps/v1
-kind: Deployment
-metadata: { name: flaresolverr, namespace: media }
-spec:
-  replicas: 1
-  selector: { matchLabels: { app: flaresolverr } }
-  template:
-    metadata: { labels: { app: flaresolverr } }
-    spec:
-      nodeSelector: { kubernetes.io/hostname: talosnode1 }
-      containers:
-        - name: flaresolverr
-          image: ghcr.io/flaresolverr/flaresolverr:latest
-          env:
-            - { name: TZ, value: Europe/Paris }
-            - { name: LOG_LEVEL, value: info }
-          ports: [{ name: http, containerPort: 8191 }]
----
 apiVersion: v1
 kind: Service
 metadata: { name: flaresolverr, namespace: media }
 spec:
   type: ClusterIP
-  selector: { app: flaresolverr }
+  selector: { app: qbittorrent }
   ports: [{ name: http, port: 8191, targetPort: 8191 }]
