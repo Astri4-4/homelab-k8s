@@ -1,0 +1,342 @@
+# =====================================================================
+#  Stack "media" : qBittorrent (derrière Gluetun/NordVPN) + Radarr +
+#  Sonarr + Prowlarr + FlareSolverr
+#  Stockage : partage SMB TrueNAS "Jellyfin" monté sur /data
+#             (le même que Jellyfin -> les imports apparaissent direct)
+# =====================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: media
+  labels:
+    # hostPath /dev/net/tun + NET_ADMIN -> refusés par le PSA baseline de Talos
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/warn: privileged
+---
+# ---------------------------------------------------------------------
+#  Partage SMB (même source que Jellyfin, volumeHandle unique)
+#  Réutilise le secret smb-jelly du namespace jellyfin
+# ---------------------------------------------------------------------
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-media-data
+spec:
+  capacity:
+    storage: 1Ti
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  mountOptions:
+    - dir_mode=0775
+    - file_mode=0664
+    - uid=1000
+    - gid=1000
+    - vers=3.1.1
+    - noperm
+    - mfsymlinks
+    - noserverino
+  csi:
+    driver: smb.csi.k8s.io
+    volumeHandle: 192.168.10.33/Jellyfin##media
+    volumeAttributes:
+      source: //192.168.10.33/Jellyfin
+    nodeStageSecretRef:
+      name: smb-jelly
+      namespace: jellyfin
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: media-data
+  namespace: media
+spec:
+  accessModes: [ReadWriteMany]
+  storageClassName: ""
+  volumeName: pv-media-data
+  resources:
+    requests:
+      storage: 1Ti
+---
+# ---------------------------------------------------------------------
+#  Configs sur Longhorn (SQLite -> jamais sur SMB)
+# ---------------------------------------------------------------------
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: qbittorrent-config, namespace: media }
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn
+  resources: { requests: { storage: 1Gi } }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: radarr-config, namespace: media }
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn
+  resources: { requests: { storage: 5Gi } }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: sonarr-config, namespace: media }
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn
+  resources: { requests: { storage: 5Gi } }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: prowlarr-config, namespace: media }
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn
+  resources: { requests: { storage: 2Gi } }
+---
+# =====================================================================
+#  qBittorrent + Gluetun (sidecar natif : démarre AVANT qBittorrent,
+#  qBittorrent ne démarre pas tant que le tunnel n'est pas healthy)
+#  Kill-switch : le firewall Gluetun bloque tout hors tunnel.
+# =====================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qbittorrent
+  namespace: media
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app: qbittorrent }
+  template:
+    metadata:
+      labels: { app: qbittorrent }
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: talosnode1
+      # DNS du pod = DNS chiffré de Gluetun (pas de fuite DNS vers OPNsense/FAI)
+      dnsPolicy: None
+      dnsConfig:
+        nameservers: ["127.0.0.1"]
+      initContainers:
+        - name: gluetun
+          image: qmcgaw/gluetun:v3
+          restartPolicy: Always          # => sidecar natif
+          securityContext:
+            capabilities:
+              add: ["NET_ADMIN"]
+          env:
+            - { name: TZ, value: Europe/Paris }
+            - { name: VPN_SERVICE_PROVIDER, value: nordvpn }
+            - { name: VPN_TYPE, value: wireguard }
+            - name: WIREGUARD_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef: { name: nordvpn, key: WIREGUARD_PRIVATE_KEY }
+            - { name: SERVER_COUNTRIES, value: "Switzerland,Netherlands" }
+            # Ports accessibles depuis le cluster : WebUI qBit + proxy HTTP
+            - { name: FIREWALL_INPUT_PORTS, value: "8080,8888" }
+            # Réponses vers pods / services / LAN routées hors tunnel
+            - { name: FIREWALL_OUTBOUND_SUBNETS, value: "10.244.0.0/16,10.96.0.0/12,192.168.10.0/24,192.168.0.0/24" }
+            # Proxy HTTP utilisé par Prowlarr pour passer les indexeurs dans le VPN
+            - { name: HTTPPROXY, value: "on" }
+            - { name: HTTPPROXY_LISTENING_ADDRESS, value: ":8888" }
+          startupProbe:
+            exec: { command: ["/gluetun-entrypoint", "healthcheck"] }
+            periodSeconds: 5
+            failureThreshold: 60
+          livenessProbe:
+            exec: { command: ["/gluetun-entrypoint", "healthcheck"] }
+            periodSeconds: 30
+            failureThreshold: 5
+          volumeMounts:
+            - { name: tun, mountPath: /dev/net/tun }
+      containers:
+        - name: qbittorrent
+          image: lscr.io/linuxserver/qbittorrent:latest
+          env:
+            - { name: PUID, value: "1000" }
+            - { name: PGID, value: "1000" }
+            - { name: TZ, value: Europe/Paris }
+            - { name: WEBUI_PORT, value: "8080" }
+          ports:
+            - { name: webui, containerPort: 8080 }
+          readinessProbe:
+            tcpSocket: { port: 8080 }
+            periodSeconds: 10
+            timeoutSeconds: 5
+          volumeMounts:
+            - { name: config, mountPath: /config }
+            - { name: data, mountPath: /data }
+      volumes:
+        - name: tun
+          hostPath: { path: /dev/net/tun, type: CharDevice }
+        - name: config
+          persistentVolumeClaim: { claimName: qbittorrent-config }
+        - name: data
+          persistentVolumeClaim: { claimName: media-data }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: qbittorrent, namespace: media }
+spec:
+  type: NodePort
+  selector: { app: qbittorrent }
+  ports:
+    - { name: webui, port: 8080, targetPort: 8080, nodePort: 30808 }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: gluetun-proxy, namespace: media }
+spec:
+  type: ClusterIP          # interne uniquement
+  selector: { app: qbittorrent }
+  ports:
+    - { name: http-proxy, port: 8888, targetPort: 8888 }
+---
+# =====================================================================
+#  Radarr (films)
+# =====================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: radarr, namespace: media }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: radarr } }
+  template:
+    metadata: { labels: { app: radarr } }
+    spec:
+      nodeSelector: { kubernetes.io/hostname: talosnode1 }
+      containers:
+        - name: radarr
+          image: lscr.io/linuxserver/radarr:latest
+          env:
+            - { name: PUID, value: "1000" }
+            - { name: PGID, value: "1000" }
+            - { name: TZ, value: Europe/Paris }
+          ports: [{ name: http, containerPort: 7878 }]
+          readinessProbe:
+            tcpSocket: { port: 7878 }
+            timeoutSeconds: 5
+          volumeMounts:
+            - { name: config, mountPath: /config }
+            - { name: data, mountPath: /data }
+      volumes:
+        - { name: config, persistentVolumeClaim: { claimName: radarr-config } }
+        - { name: data, persistentVolumeClaim: { claimName: media-data } }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: radarr, namespace: media }
+spec:
+  type: NodePort
+  selector: { app: radarr }
+  ports: [{ name: http, port: 7878, targetPort: 7878, nodePort: 30878 }]
+---
+# =====================================================================
+#  Sonarr (séries)
+# =====================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: sonarr, namespace: media }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: sonarr } }
+  template:
+    metadata: { labels: { app: sonarr } }
+    spec:
+      nodeSelector: { kubernetes.io/hostname: talosnode1 }
+      containers:
+        - name: sonarr
+          image: lscr.io/linuxserver/sonarr:latest
+          env:
+            - { name: PUID, value: "1000" }
+            - { name: PGID, value: "1000" }
+            - { name: TZ, value: Europe/Paris }
+          ports: [{ name: http, containerPort: 8989 }]
+          readinessProbe:
+            tcpSocket: { port: 8989 }
+            timeoutSeconds: 5
+          volumeMounts:
+            - { name: config, mountPath: /config }
+            - { name: data, mountPath: /data }
+      volumes:
+        - { name: config, persistentVolumeClaim: { claimName: sonarr-config } }
+        - { name: data, persistentVolumeClaim: { claimName: media-data } }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: sonarr, namespace: media }
+spec:
+  type: NodePort
+  selector: { app: sonarr }
+  ports: [{ name: http, port: 8989, targetPort: 8989, nodePort: 30989 }]
+---
+# =====================================================================
+#  Prowlarr (indexeurs -> pousse vers Radarr/Sonarr)
+# =====================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: prowlarr, namespace: media }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: prowlarr } }
+  template:
+    metadata: { labels: { app: prowlarr } }
+    spec:
+      nodeSelector: { kubernetes.io/hostname: talosnode1 }
+      containers:
+        - name: prowlarr
+          image: lscr.io/linuxserver/prowlarr:latest
+          env:
+            - { name: PUID, value: "1000" }
+            - { name: PGID, value: "1000" }
+            - { name: TZ, value: Europe/Paris }
+          ports: [{ name: http, containerPort: 9696 }]
+          readinessProbe:
+            tcpSocket: { port: 9696 }
+            timeoutSeconds: 5
+          volumeMounts:
+            - { name: config, mountPath: /config }
+      volumes:
+        - { name: config, persistentVolumeClaim: { claimName: prowlarr-config } }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: prowlarr, namespace: media }
+spec:
+  type: NodePort
+  selector: { app: prowlarr }
+  ports: [{ name: http, port: 9696, targetPort: 9696, nodePort: 30696 }]
+---
+# =====================================================================
+#  FlareSolverr (contourne Cloudflare pour certains indexeurs)
+# =====================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: flaresolverr, namespace: media }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: flaresolverr } }
+  template:
+    metadata: { labels: { app: flaresolverr } }
+    spec:
+      nodeSelector: { kubernetes.io/hostname: talosnode1 }
+      containers:
+        - name: flaresolverr
+          image: ghcr.io/flaresolverr/flaresolverr:latest
+          env:
+            - { name: TZ, value: Europe/Paris }
+            - { name: LOG_LEVEL, value: info }
+          ports: [{ name: http, containerPort: 8191 }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: flaresolverr, namespace: media }
+spec:
+  type: ClusterIP
+  selector: { app: flaresolverr }
+  ports: [{ name: http, port: 8191, targetPort: 8191 }]
