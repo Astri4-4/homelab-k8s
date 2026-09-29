@@ -1,4 +1,4 @@
-# --- Volume SMB statique (//192.168.10.33/jelly) ---
+# --- Volume SMB statique (//192.168.10.33/Jellyfin) ---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
@@ -20,7 +20,7 @@ spec:
     - noserverino
   csi:
     driver: smb.csi.k8s.io
-    volumeHandle: 192.168.10.33/Jellyfin##jellyfin   # doit être unique dans le cluster
+    volumeHandle: 192.168.10.33/Jellyfin##jellyfin
     volumeAttributes:
       source: //192.168.10.33/Jellyfin
     nodeStageSecretRef:
@@ -68,29 +68,33 @@ spec:
     metadata:
       labels: { app: jellyfin }
     spec:
+      runtimeClassName: nvidia
       nodeSelector:
-        kubernetes.io/hostname: talosnode1   # sergay
+        kubernetes.io/hostname: talosnode1   # sergay (RTX 4060, time-slicing x4)
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
-      # --- Transcodage NVENC (voir note GPU plus bas) ---
-      # runtimeClassName: nvidia
       containers:
         - name: jellyfin
-          image: jellyfin/jellyfin:latest   # épingle une version une fois que ça tourne
+          image: jellyfin/jellyfin:latest
           ports:
             - containerPort: 8096
               name: http
           env:
             - name: JELLYFIN_PublishedServerUrl
               value: "http://192.168.10.120:30096"
-            # - name: NVIDIA_DRIVER_CAPABILITIES
-            #   value: "compute,video,utility"
+            - name: NVIDIA_VISIBLE_DEVICES
+              value: all
+            - name: NVIDIA_DRIVER_CAPABILITIES
+              value: "compute,video,utility"
           resources:
-            requests: { cpu: 500m, memory: 1Gi }
-            limits: { memory: 4Gi }
-            #  nvidia.com/gpu: 1
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              memory: 8Gi
+              nvidia.com/gpu: 1
           volumeMounts:
             - name: config
               mountPath: /config
@@ -101,7 +105,10 @@ spec:
               readOnly: true
           readinessProbe:
             httpGet: { path: /health, port: http }
-            initialDelaySeconds: 20
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 6
       volumes:
         - name: config
           persistentVolumeClaim: { claimName: jellyfin-config }
