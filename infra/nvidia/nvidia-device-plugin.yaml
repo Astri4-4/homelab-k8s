@@ -52,6 +52,9 @@ spec:
           hostPath:
             path: /var/lib/kubelet/device-plugins
             type: Directory
+        - name: plugin-config
+          configMap:
+            name: nvidia-device-plugin-config
 ---
 apiVersion: v1
 kind: ConfigMap
