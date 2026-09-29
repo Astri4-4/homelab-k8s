@@ -12,7 +12,7 @@ spec:
     helm:
       valuesObject:
         args:
-          - --kubelet-insecure-tls   # certs kubelet auto-signés sous Talos
+          - --kubelet-insecure-tls
   destination:
     server: https://kubernetes.default.svc
     namespace: kube-system
