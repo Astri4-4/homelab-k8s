@@ -107,11 +107,24 @@ spec:
       labels:
         app: n8n
     spec:
+      serviceAccountName: n8n-agent
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
       initContainers:
+        - name: install-kubectl
+          image: curlimages/curl:latest
+          command:
+            - sh
+            - -c
+            - |
+              V=$(curl -fsSL https://dl.k8s.io/release/stable.txt)
+              curl -fsSL -o /opt/kubectl/kubectl "https://dl.k8s.io/release/${V}/bin/linux/amd64/kubectl"
+              chmod +x /opt/kubectl/kubectl
+          volumeMounts:
+            - name: kubectl
+              mountPath: /opt/kubectl
         - name: wait-db
           image: postgres:16-alpine
           command: ["sh", "-c", "until pg_isready -h n8n-postgres -U n8n; do sleep 2; done"]
@@ -166,9 +179,14 @@ spec:
               value: "true"
             - name: EXECUTIONS_DATA_MAX_AGE
               value: "336"         # 14 jours
+            - name: NODES_EXCLUDE  # n8n 2.x désactive "Execute Command" par défaut
+              value: "[]"
           volumeMounts:
             - name: data
               mountPath: /home/node/.n8n
+            - name: kubectl
+              mountPath: /opt/kubectl
+              readOnly: true
           readinessProbe:
             httpGet:
               path: /healthz
@@ -188,6 +206,8 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: n8n-data
+        - name: kubectl
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
