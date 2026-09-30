@@ -37,6 +37,7 @@ spec:
               value: "true"
             - name: API_SERVER_HOST
               value: "0.0.0.0"
+            - { name: SEARXNG_URL, value: "http://searxng.searxng.svc.cluster.local:8080" }
           envFrom:
             - secretRef:
                 name: hermes-dashboard-auth
