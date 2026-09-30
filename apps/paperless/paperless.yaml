@@ -91,6 +91,7 @@ spec:
       labels:
         app: paperless
     spec:
+      enableServiceLinks: false
       containers:
         - name: paperless
           image: ghcr.io/paperless-ngx/paperless-ngx:latest
@@ -128,6 +129,7 @@ spec:
               memory: 1Gi
             limits:
               memory: 3Gi
+
       volumes:
         - name: data
           persistentVolumeClaim:
