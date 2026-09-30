@@ -126,7 +126,12 @@ spec:
           env:
             - { name: OLLAMA_BASE_URL, value: "http://ollama.ai.svc.cluster.local:11434" }
             - { name: WEBUI_URL, value: "https://ai.sachaguerin.fr" }
-            - { name: ENABLE_OPENAI_API, value: "false" }
+            - { name: ENABLE_OPENAI_API, value: "true" }
+            - { name: OPENAI_API_BASE_URLS, value: "http://hermes-api.hermes.svc.cluster.local:8642/v1" }
+            - name: OPENAI_API_KEYS
+              valueFrom:
+                secretKeyRef: { name: hermes-api, key: API_SERVER_KEY }
+            - { name: DEFAULT_MODELS, value: "hermes-agent" }
             - name: WEBUI_SECRET_KEY
               valueFrom:
                 secretKeyRef: { name: open-webui-secret, key: WEBUI_SECRET_KEY }
