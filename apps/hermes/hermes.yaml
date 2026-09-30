@@ -25,6 +25,19 @@ spec:
     metadata:
       labels: { app: hermes }
     spec:
+      serviceAccountName: hermes
+      initContainers:
+        - name: kubectl
+          image: alpine:3.20
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              apk add --no-cache curl >/dev/null
+              V=$(curl -Ls https://dl.k8s.io/release/stable.txt)
+              curl -Lo /tools/kubectl "https://dl.k8s.io/release/$V/bin/linux/amd64/kubectl"
+              chmod +x /tools/kubectl
+          volumeMounts:
+            - { name: tools, mountPath: /tools }
       # no securityContext.runAsUser: s6 /init must start as root, then drops to UID 10000
       containers:
         - name: hermes
@@ -37,6 +50,7 @@ spec:
               value: "true"
             - name: API_SERVER_HOST
               value: "0.0.0.0"
+            - { name: SEARXNG_URL, value: "http://searxng.searxng.svc.cluster.local:8080" }
           envFrom:
             - secretRef:
                 name: hermes-dashboard-auth
@@ -46,6 +60,7 @@ spec:
           volumeMounts:
             - { name: data, mountPath: /opt/data }
             - { name: dshm, mountPath: /dev/shm }
+            - { name: tools, mountPath: /usr/local/bin/kubectl, subPath: kubectl }
           resources:
             requests: { cpu: 500m, memory: 1Gi }
             limits:   { cpu: "2",  memory: 4Gi }
@@ -57,6 +72,8 @@ spec:
           emptyDir:
             medium: Memory
             sizeLimit: 1Gi
+        - name: tools
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -84,3 +101,23 @@ spec:
     - name: api
       port: 8642
       targetPort: 8642
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: hermes
+  namespace: hermes
+---
+# "view" (ClusterRole natif) : lecture seule, Secrets exclus
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: hermes-view
+subjects:
+  - kind: ServiceAccount
+    name: hermes
+    namespace: hermes
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: view

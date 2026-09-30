@@ -1,0 +1,90 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring
+  namespace: argocd
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  sources:
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      targetRevision: 77.0.0   # vérifier : helm search repo prometheus-community/kube-prometheus-stack
+      helm:
+        valuesObject:
+          kubeEtcd: { enabled: false }
+          kubeScheduler: { enabled: false }
+          kubeControllerManager: { enabled: false }
+          kubeProxy: { enabled: false }
+
+          grafana:
+            admin:
+              existingSecret: grafana-admin
+              userKey: admin-user
+              passwordKey: admin-password
+            ingress:
+              enabled: false          # géré dans apps/monitoring/monitoring.yaml
+            persistence:
+              enabled: true
+              storageClassName: longhorn
+              size: 5Gi
+            dashboardProviders:
+              dashboardproviders.yaml:
+                apiVersion: 1
+                providers:
+                  - name: homelab
+                    orgId: 1
+                    folder: Homelab
+                    type: file
+                    disableDeletion: false
+                    editable: true
+                    options:
+                      path: /var/lib/grafana/dashboards/homelab
+            dashboards:
+              homelab:
+                node-exporter-full:
+                  url: https://grafana.com/api/dashboards/1860/revisions/latest/download
+                  datasource: [{ name: DS_PROMETHEUS, value: Prometheus }]
+                k8s-global:
+                  url: https://grafana.com/api/dashboards/15757/revisions/latest/download
+                  datasource: [{ name: DS_PROMETHEUS, value: Prometheus }]
+                k8s-nodes:
+                  url: https://grafana.com/api/dashboards/15759/revisions/latest/download
+                  datasource: [{ name: DS_PROMETHEUS, value: Prometheus }]
+                k8s-pods:
+                  url: https://grafana.com/api/dashboards/15760/revisions/latest/download
+                  datasource: [{ name: DS_PROMETHEUS, value: Prometheus }]
+                longhorn:
+                  url: https://grafana.com/api/dashboards/13032/revisions/latest/download
+                  datasource: [{ name: DS_PROMETHEUS, value: Prometheus }]
+                traefik:
+                  url: https://grafana.com/api/dashboards/17346/revisions/latest/download
+                  datasource: [{ name: DS_PROMETHEUS, value: Prometheus }]
+
+          prometheus:
+            prometheusSpec:
+              retention: 15d
+              serviceMonitorSelectorNilUsesHelmValues: false
+              podMonitorSelectorNilUsesHelmValues: false
+              storageSpec:
+                volumeClaimTemplate:
+                  spec:
+                    storageClassName: longhorn
+                    accessModes: [ReadWriteOnce]
+                    resources:
+                      requests: { storage: 20Gi }
+
+    - repoURL: https://github.com/Astri4-4/homelab-k8s.git
+      targetRevision: master
+      path: apps/monitoring
+
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    managedNamespaceMetadata:
+      labels:
+        pod-security.kubernetes.io/enforce: privileged
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
