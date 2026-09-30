@@ -31,6 +31,17 @@ spec:
             port: 9000
           metrics:
             port: 9101
+        metrics:
+          prometheus:
+            entryPoint: metrics
+            addEntryPointsLabels: true
+            addRoutersLabels: true
+            addServicesLabels: true
+            service:
+              enabled: true
+            serviceMonitor:
+              enabled: true
+              interval: 30s
         securityContext:
           capabilities:
             drop: [ALL]
