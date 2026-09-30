@@ -38,10 +38,6 @@ spec:
               chmod +x /tools/kubectl
           volumeMounts:
             - { name: tools, mountPath: /tools }
-      volumes:
-        # ... tes volumes existants
-        - name: tools
-          emptyDir: {}
       # no securityContext.runAsUser: s6 /init must start as root, then drops to UID 10000
       containers:
         - name: hermes
@@ -76,6 +72,8 @@ spec:
           emptyDir:
             medium: Memory
             sizeLimit: 1Gi
+        - name: tools
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
