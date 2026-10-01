@@ -4,6 +4,8 @@ metadata:
   name: sandbox
   labels:
     pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: baseline
+    pod-security.kubernetes.io/audit: baseline
 ---
 # Limites globales : 3 sandbox max, 4 CPU / 6 Go en tout
 apiVersion: v1
@@ -75,3 +77,21 @@ roleRef:
   kind: Role
   name: sandbox-manager
   apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: sandbox-defaults
+  namespace: sandbox
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: "1"
+        memory: 1Gi
+      defaultRequest:
+        cpu: 100m
+        memory: 128Mi
+      max:
+        cpu: "2"
+        memory: 2Gi
