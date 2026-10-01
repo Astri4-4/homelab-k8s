@@ -69,7 +69,7 @@ metadata:
   namespace: sandbox
 subjects:
   - kind: ServiceAccount
-    name: <SA_N8N>
+    name: n8n-agent
     namespace: n8n
 roleRef:
   kind: Role
