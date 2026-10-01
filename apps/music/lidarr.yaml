@@ -52,7 +52,7 @@ spec:
           persistentVolumeClaim: { claimName: lidarr-config }
         - name: music
           persistentVolumeClaim: { claimName: music }
-        - name: downloads
+        - name: data
           persistentVolumeClaim: { claimName: media-data }   # <- nom du PVC de qBittorrent
 ---
 apiVersion: v1
