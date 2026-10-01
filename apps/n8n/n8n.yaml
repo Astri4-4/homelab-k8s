@@ -181,12 +181,16 @@ spec:
               value: "336"         # 14 jours
             - name: NODES_EXCLUDE  # n8n 2.x désactive "Execute Command" par défaut
               value: "[]"
+            - name: N8N_RESTRICT_FILE_ACCESS_TO
+              value: "/files"
           volumeMounts:
             - name: data
               mountPath: /home/node/.n8n
             - name: kubectl
               mountPath: /opt/kubectl
               readOnly: true
+            - name: agent-files
+              mountPath: /files
           readinessProbe:
             httpGet:
               path: /healthz
@@ -208,6 +212,9 @@ spec:
             claimName: n8n-data
         - name: kubectl
           emptyDir: {}
+        - name: agent-files
+          persistentVolumeClaim:
+            claimName: n8n-agent-files
 ---
 apiVersion: v1
 kind: Service
@@ -240,3 +247,15 @@ spec:
                 name: n8n
                 port:
                   number: 5678
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: n8n-agent-files
+  namespace: n8n
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 2Gi
