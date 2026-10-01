@@ -1,0 +1,42 @@
+# Partage SMB TrueNAS "Musique" (même driver smb.csi.k8s.io que Jellyfin)
+# Secret à créer à la main :
+#   kubectl create secret generic smb-music-creds -n media \
+#     --from-literal=username=XXX --from-literal=password=XXX
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: music-smb
+spec:
+  capacity:
+    storage: 1Ti
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  mountOptions:
+    - dir_mode=0775
+    - file_mode=0664
+    - uid=1000
+    - gid=1000
+    - vers=3.0
+    - noperm
+  csi:
+    driver: smb.csi.k8s.io
+    volumeHandle: truenas-musique
+    volumeAttributes:
+      source: //192.168.10.33/Musique
+    nodeStageSecretRef:
+      name: smb-music-creds
+      namespace: media
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: music
+  namespace: media
+spec:
+  accessModes: [ReadWriteMany]
+  storageClassName: ""
+  volumeName: music-smb
+  resources:
+    requests:
+      storage: 1Ti
