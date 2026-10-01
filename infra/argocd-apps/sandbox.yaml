@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: <ton repo homelab-k8s>
+    repoURL: https://github.com/astri4-4/homelab-k8s.git
     targetRevision: master
     path: apps/sandbox
   destination:
