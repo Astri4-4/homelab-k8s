@@ -8,9 +8,9 @@ spec:
   source:
     repoURL: https://github.com/kubernetes-sigs/kube-network-policies
     targetRevision: main
-    path: charts/kube-network-policies
-    helm:
-      releaseName: kube-network-policies
+    path: .
+    directory:
+      include: install.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: kube-system
