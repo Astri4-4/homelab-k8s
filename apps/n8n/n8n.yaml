@@ -183,6 +183,8 @@ spec:
               value: "[]"
             - name: N8N_RESTRICT_FILE_ACCESS_TO
               value: "/files"
+            - name: "PATH"
+              value: "/opt/kubectl:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
           volumeMounts:
             - name: data
               mountPath: /home/node/.n8n
