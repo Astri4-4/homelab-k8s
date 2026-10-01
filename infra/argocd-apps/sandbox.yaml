@@ -1,0 +1,16 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sandbox
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: <ton repo homelab-k8s>
+    targetRevision: master
+    path: apps/sandbox
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: sandbox
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
