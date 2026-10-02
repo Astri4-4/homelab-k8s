@@ -3,15 +3,9 @@ kind: Namespace
 metadata:
   name: nextcloud
 ---
-apiVersion: v1
-kind: Secret
-metadata:
-  name: nextcloud-db-secret
-  namespace: nextcloud
-type: Opaque
-stringData:
-  MYSQL_ROOT_PASSWORD: Rwqfsfasxc_974
-  MYSQL_PASSWORD: Rwqfsfasxc_974
+# nextcloud-db-secret (MYSQL_ROOT_PASSWORD, MYSQL_PASSWORD) is created out-of-band:
+#   kubectl -n nextcloud create secret generic nextcloud-db-secret \
+#     --from-literal=MYSQL_ROOT_PASSWORD=... --from-literal=MYSQL_PASSWORD=...
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
