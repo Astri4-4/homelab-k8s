@@ -32,6 +32,9 @@ spec:
       labels:
         app: argonfetch
     spec:
+      securityContext:
+          fsGroup: 1654
+          fsGroupChangePolicy: OnRootMismatch
       containers:
         - name: argonfetch
           image: ghcr.io/argonfetch/argonfetch:latest
