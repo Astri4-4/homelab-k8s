@@ -1,0 +1,81 @@
+# Deemix : téléchargement de titres Deezer à l'unité -> /music/Deezer/<Artiste>/<Album>/
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: deemix-config
+  namespace: media
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deemix
+  namespace: media
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: deemix
+  template:
+    metadata:
+      labels:
+        app: deemix
+    spec:
+      containers:
+        - name: deemix
+          image: ghcr.io/bambanah/deemix:latest
+          ports:
+            - containerPort: 6595
+          env:
+            - { name: PUID, value: "1000" }
+            - { name: PGID, value: "1000" }
+            - { name: TZ, value: Europe/Paris }
+            - { name: DEEMIX_SINGLE_USER, value: "true" }
+          volumeMounts:
+            - { name: config, mountPath: /config }
+            - { name: music, mountPath: /downloads, subPath: Deezer }
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 1Gi }
+      volumes:
+        - name: config
+          persistentVolumeClaim: { claimName: deemix-config }
+        - name: music
+          persistentVolumeClaim: { claimName: music }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: deemix
+  namespace: media
+spec:
+  selector:
+    app: deemix
+  ports:
+    - port: 6595
+      targetPort: 6595
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: deemix
+  namespace: media
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: deemix.home.sachaguerin.fr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: deemix
+                port: { number: 6595 }
