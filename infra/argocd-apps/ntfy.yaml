@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/astri4-4/homelab-k8s.git   # adapte si besoin
-    targetRevision: main
+    targetRevision: master
     path: apps/ntfy
   destination:
     server: https://kubernetes.default.svc
