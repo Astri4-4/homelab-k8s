@@ -2,3 +2,6 @@ _out/
 talosconfig
 kubeconfig
 *.env
+.idea/
+client-config.yml
+apps/backup-restic/secret.yaml

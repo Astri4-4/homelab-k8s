@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: backup-restic
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Astri4-4/homelab-k8s
+    targetRevision: master
+    path: apps/backup-restic
+    directory:
+      exclude: 'secret.yaml'
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: backup
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions:
+      - CreateNamespace=true
