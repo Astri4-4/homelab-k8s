@@ -1,0 +1,96 @@
+# apps/ntfy/ntfy.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ntfy
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ntfy-config
+  namespace: ntfy
+data:
+  server.yml: |
+    base-url: "https://ntfy.sachaguerin.fr"
+    listen-http: ":80"
+    behind-proxy: true
+    cache-file: "/var/lib/ntfy/cache.db"
+    auth-file: "/var/lib/ntfy/auth.db"
+    auth-default-access: "deny-all"
+    attachment-cache-dir: "/var/lib/ntfy/attachments"
+    upstream-base-url: "https://ntfy.sh"   # push instantané sur iOS
+    enable-login: true
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ntfy-data
+  namespace: ntfy
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ntfy
+  namespace: ntfy
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: { app: ntfy }
+  template:
+    metadata:
+      labels: { app: ntfy }
+    spec:
+      containers:
+        - name: ntfy
+          image: binwiederhier/ntfy:latest
+          args: ["serve"]
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - { name: config, mountPath: /etc/ntfy }
+            - { name: data, mountPath: /var/lib/ntfy }
+          readinessProbe:
+            httpGet: { path: /v1/health, port: 80 }
+          resources:
+            requests: { cpu: 10m, memory: 32Mi }
+            limits: { memory: 128Mi }
+      volumes:
+        - name: config
+          configMap: { name: ntfy-config }
+        - name: data
+          persistentVolumeClaim: { claimName: ntfy-data }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ntfy
+  namespace: ntfy
+spec:
+  selector: { app: ntfy }
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ntfy
+  namespace: ntfy
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: ntfy.home.sachaguerin.fr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: ntfy, port: { number: 80 } }

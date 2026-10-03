@@ -20,6 +20,15 @@ spec:
           kubeProxy: { enabled: false }
 
           grafana:
+            imageRenderer:
+              enabled: true
+              replicas: 1
+              resources:
+                requests: { cpu: 100m, memory: 256Mi }
+                limits:   { memory: 1Gi }
+            grafana.ini:
+              rendering:
+                concurrent_render_request_limit: 4
             admin:
               existingSecret: grafana-admin
               userKey: admin-user
