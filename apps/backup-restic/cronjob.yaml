@@ -43,6 +43,7 @@ spec:
                 - { name: ssh, mountPath: /root/.ssh, readOnly: true }
                 - { name: cache, mountPath: /cache }
                 - { name: music, mountPath: /data/music, readOnly: true }
+                - { name: nc, mountPath: /data/nc, readOnly: true }
               resources:
                 requests: { cpu: 200m, memory: 256Mi }
                 limits:   { memory: 1Gi }
@@ -59,3 +60,5 @@ spec:
             # Un volume NFS par partage à sauvegarder
             - name: music
               nfs: { server: 192.168.10.33, path: /mnt/Storage/Musique, readOnly: true }
+            - name: nc
+              nfs: { server: 192.168.10.33, path: /mnt/Storage/nextcloud, readOnly: true }
