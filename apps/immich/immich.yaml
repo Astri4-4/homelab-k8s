@@ -2,6 +2,8 @@
 # Secret à créer à la main AVANT le premier sync :
 #   kubectl create namespace immich
 #   kubectl -n immich create secret generic immich-db --from-literal=password="$(openssl rand -hex 24)"
+#   kubectl -n immich create secret generic smb-immich --from-literal=username='<user SMB>' --from-literal=password='<mdp>'
+# Photos/vidéos sur le NAS (SMB), Postgres + cache ML sur Longhorn (jamais de BDD sur SMB).
 ---
 apiVersion: v1
 kind: Namespace
@@ -9,17 +11,48 @@ metadata:
   name: immich
 ---
 # ---------- Stockage ----------
+# Bibliothèque photos sur le NAS : partage SMB TrueNAS "Immich" (PV statique csi-driver-smb)
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-immich-library
+spec:
+  capacity:
+    storage: 1Ti              # indicatif, SMB ne l'applique pas
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain   # supprimer PV/PVC ne touche jamais aux fichiers du NAS
+  storageClassName: ""
+  mountOptions:
+    - dir_mode=0775
+    - file_mode=0664
+    - uid=1000
+    - gid=1000
+    - noperm
+    - mfsymlinks
+    - noserverino
+    - cache=strict
+    - vers=3.1.1
+  csi:
+    driver: smb.csi.k8s.io
+    volumeHandle: 192.168.10.33/Immich##immich
+    volumeAttributes:
+      source: //192.168.10.33/Immich
+    nodeStageSecretRef:
+      name: smb-immich
+      namespace: immich
+---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: immich-library
+  name: immich-library-nas
   namespace: immich
 spec:
-  accessModes: [ReadWriteOnce]
-  storageClassName: longhorn
+  accessModes: [ReadWriteMany]
+  storageClassName: ""
+  volumeName: pv-immich-library
   resources:
     requests:
-      storage: 100Gi          # photos/vidéos + miniatures + encodages ; extensible dans Git
+      storage: 1Ti
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -268,7 +301,7 @@ spec:
             - { name: library, mountPath: /data }
       volumes:
         - name: library
-          persistentVolumeClaim: { claimName: immich-library }
+          persistentVolumeClaim: { claimName: immich-library-nas }
 ---
 apiVersion: v1
 kind: Service
