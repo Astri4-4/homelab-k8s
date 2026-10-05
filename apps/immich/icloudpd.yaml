@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: icloudpd
+  namespace: immich
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: icloudpd } }
+  template:
+    metadata: { labels: { app: icloudpd } }
+    spec:
+      containers:
+        - name: icloudpd
+          image: icloudpd/icloudpd:latest
+          command: ["icloudpd"]
+          args:
+            - --username=$(APPLE_ID)
+            - --directory=/data
+            - --cookie-directory=/cookies
+            - --folder-structure={:%Y/%m}
+            - --size=original
+            - --watch-with-interval=3600
+            - --no-progress-bar
+          env:
+            - name: APPLE_ID
+              valueFrom: { secretKeyRef: { name: icloudpd, key: apple-id } }
+          volumeMounts:
+            - { name: photos, mountPath: /data }
+            - { name: cookies, mountPath: /cookies }
+      volumes:
+        - name: photos
+          persistentVolumeClaim: { claimName: icloud-photos }   # NFS TrueNAS
+        - name: cookies
+          persistentVolumeClaim: { claimName: icloudpd-cookies }
