@@ -1,0 +1,261 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: glance
+  namespace: glance
+data:
+  glance.yml: |
+    server:
+      port: 8080
+      proxied: true
+
+    theme:
+      background-color: 225 14 15
+      primary-color: 157 47 65
+      contrast-multiplier: 1.1
+
+    pages:
+      - name: Homelab
+        width: wide
+        columns:
+          # ───────── left ─────────
+          - size: small
+            widgets:
+              - type: clock
+                hour-format: 24h
+              - type: dns-stats
+                service: adguard
+                url: http://192.168.10.120:8080
+                username: ${ADGUARD_USER}
+                password: ${ADGUARD_PASSWORD}
+                hour-format: 24h
+              - type: bookmarks
+                groups:
+                  - title: Admin
+                    links:
+                      - { title: ArgoCD,   url: https://argocd.home.sachaguerin.fr, icon: di:argo-cd }
+                      - { title: Grafana,  url: https://grafana.home.sachaguerin.fr, icon: di:grafana }
+                      - { title: Headlamp, url: https://headlamp.home.sachaguerin.fr, icon: di:headlamp }
+                      - { title: OPNsense, url: https://192.168.10.1, icon: di:opnsense }
+                      - { title: TrueNAS,  url: http://192.168.10.33, icon: di:truenas }
+
+          # ───────── center ─────────
+          - size: full
+            widgets:
+              - type: custom-api
+                title: Cluster
+                cache: 30s
+                url: http://monitoring-kube-prometheus-prometheus.monitoring.svc:9090/api/v1/query
+                parameters:
+                  query: sum(kube_pod_status_phase{phase="Running"})
+                subrequests:
+                  bad:
+                    url: http://monitoring-kube-prometheus-prometheus.monitoring.svc:9090/api/v1/query
+                    parameters:
+                      query: sum(kube_pod_status_phase{phase=~"Pending|Failed|Unknown"}) or vector(0)
+                  down:
+                    url: http://monitoring-kube-prometheus-prometheus.monitoring.svc:9090/api/v1/query
+                    parameters:
+                      query: count(up == 0) or vector(0)
+                  restarts:
+                    url: http://monitoring-kube-prometheus-prometheus.monitoring.svc:9090/api/v1/query
+                    parameters:
+                      query: sum(increase(kube_pod_container_status_restarts_total[1h])) or vector(0)
+                template: |
+                  {{ $bad := (.Subrequest "bad").JSON.Int "data.result.0.value.1" }}
+                  {{ $down := (.Subrequest "down").JSON.Int "data.result.0.value.1" }}
+                  {{ $rst := (.Subrequest "restarts").JSON.Int "data.result.0.value.1" }}
+                  <div class="flex justify-between text-center">
+                    <div>
+                      <div class="color-highlight size-h3">{{ .JSON.Int "data.result.0.value.1" }}</div>
+                      <div class="size-h6">PODS RUNNING</div>
+                    </div>
+                    <div>
+                      <div class="size-h3 {{ if gt $bad 0 }}color-negative{{ else }}color-highlight{{ end }}">{{ $bad }}</div>
+                      <div class="size-h6">PENDING / FAILED</div>
+                    </div>
+                    <div>
+                      <div class="size-h3 {{ if gt $down 0 }}color-negative{{ else }}color-highlight{{ end }}">{{ $down }}</div>
+                      <div class="size-h6">TARGETS DOWN</div>
+                    </div>
+                    <div>
+                      <div class="size-h3 {{ if gt $rst 0 }}color-negative{{ else }}color-highlight{{ end }}">{{ $rst }}</div>
+                      <div class="size-h6">RESTARTS 1H</div>
+                    </div>
+                  </div>
+
+              - type: custom-api
+                title: Nodes
+                cache: 30s
+                url: http://monitoring-kube-prometheus-prometheus.monitoring.svc:9090/api/v1/query
+                parameters:
+                  query: (100 - avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) * on(instance) group_left(nodename) node_uname_info
+                subrequests:
+                  mem:
+                    url: http://monitoring-kube-prometheus-prometheus.monitoring.svc:9090/api/v1/query
+                    parameters:
+                      query: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 * on(instance) group_left(nodename) node_uname_info
+                  disk:
+                    url: http://monitoring-kube-prometheus-prometheus.monitoring.svc:9090/api/v1/query
+                    parameters:
+                      query: (1 - node_filesystem_avail_bytes{mountpoint="/var"} / node_filesystem_size_bytes{mountpoint="/var"}) * 100 * on(instance) group_left(nodename) node_uname_info
+                  load:
+                    url: http://monitoring-kube-prometheus-prometheus.monitoring.svc:9090/api/v1/query
+                    parameters:
+                      query: node_load5 * on(instance) group_left(nodename) node_uname_info
+                template: |
+                  {{ $mem := (.Subrequest "mem").JSON.Array "data.result" }}
+                  {{ $disk := (.Subrequest "disk").JSON.Array "data.result" }}
+                  {{ $load := (.Subrequest "load").JSON.Array "data.result" }}
+                  <ul class="list list-gap-14">
+                  {{ range .JSON.Array "data.result" }}
+                    {{ $node := .String "metric.nodename" }}
+                    {{ $cpu := .Float "value.1" }}
+                    <li>
+                      <div class="color-highlight size-h4">{{ $node }}</div>
+                      <ul class="list-horizontal-text">
+                        <li{{ if gt $cpu 80.0 }} class="color-negative"{{ end }}>CPU {{ printf "%.0f" $cpu }}%</li>
+                        {{ range $mem }}{{ if eq (.String "metric.nodename") $node }}{{ $v := .Float "value.1" }}<li{{ if gt $v 85.0 }} class="color-negative"{{ end }}>RAM {{ printf "%.0f" $v }}%</li>{{ end }}{{ end }}
+                        {{ range $disk }}{{ if eq (.String "metric.nodename") $node }}{{ $v := .Float "value.1" }}<li{{ if gt $v 85.0 }} class="color-negative"{{ end }}>/var {{ printf "%.0f" $v }}%</li>{{ end }}{{ end }}
+                        {{ range $load }}{{ if eq (.String "metric.nodename") $node }}<li>load5 {{ printf "%.2f" (.Float "value.1") }}</li>{{ end }}{{ end }}
+                      </ul>
+                    </li>
+                  {{ end }}
+                  </ul>
+
+              - type: monitor
+                title: Services
+                cache: 1m
+                style: compact
+                sites:
+                  - { title: Jellyfin,    url: https://jellyfin.sachaguerin.fr,         check-url: http://jellyfin.jellyfin.svc:8096/health,  icon: di:jellyfin }
+                  - { title: Open WebUI,  url: https://ai.sachaguerin.fr,               check-url: http://open-webui.ai.svc/health,      icon: di:open-webui }
+                  - { title: Immich,      url: https://immich.home.sachaguerin.fr,      check-url: http://immich-server.immich.svc/api/server/ping, icon: di:immich }
+                  - { title: Paperless,   url: https://paperless.home.sachaguerin.fr,   check-url: http://paperless.paperless.svc,       icon: di:paperless-ngx }
+                  - { title: n8n,         url: https://n8n.home.sachaguerin.fr,         check-url: http://n8n.n8n.svc:5678/healthz,           icon: di:n8n }
+                  - { title: Radarr,      url: https://radarr.home.sachaguerin.fr,      check-url: http://radarr.media.svc:7878/ping,         icon: di:radarr }
+                  - { title: Sonarr,      url: https://sonarr.home.sachaguerin.fr,      check-url: http://sonarr.media.svc:8989/ping,         icon: di:sonarr }
+                  - { title: Prowlarr,    url: https://prowlarr.home.sachaguerin.fr,    check-url: http://prowlarr.media.svc:9696/ping,       icon: di:prowlarr }
+                  - { title: qBittorrent, url: https://qbittorrent.home.sachaguerin.fr, check-url: http://qbittorrent.media.svc:8080,        icon: di:qbittorrent }
+                  - { title: ntfy,        url: https://ntfy.sachaguerin.fr,             check-url: http://ntfy.ntfy.svc:80/v1/health,         icon: di:ntfy }
+                  - { title: Grafana,     url: https://grafana.home.sachaguerin.fr,     check-url: http://monitoring-grafana.monitoring.svc/api/health, icon: di:grafana }
+
+          # ───────── right ─────────
+          - size: small
+            widgets:
+              - type: custom-api
+                title: Media
+                cache: 5m
+                url: http://jellyfin.jellyfin.svc:8096/Items/Counts
+                headers:
+                  X-Emby-Token: ${JELLYFIN_KEY}
+                subrequests:
+                  radarr:
+                    url: http://radarr.media.svc:7878/api/v3/queue
+                    headers: { X-Api-Key: "${RADARR_KEY}" }
+                  sonarr:
+                    url: http://sonarr.media.svc:8989/api/v3/queue
+                    headers: { X-Api-Key: "${SONARR_KEY}" }
+                template: |
+                  <div class="flex justify-between text-center">
+                    <div><div class="color-highlight size-h3">{{ .JSON.Int "MovieCount" | formatNumber }}</div><div class="size-h6">FILMS</div></div>
+                    <div><div class="color-highlight size-h3">{{ .JSON.Int "SeriesCount" | formatNumber }}</div><div class="size-h6">SERIES</div></div>
+                    <div><div class="color-highlight size-h3">{{ .JSON.Int "EpisodeCount" | formatNumber }}</div><div class="size-h6">EPISODES</div></div>
+                  </div>
+                  <ul class="list-horizontal-text margin-top-10">
+                    <li>Radarr queue: {{ (.Subrequest "radarr").JSON.Int "totalRecords" }}</li>
+                    <li>Sonarr queue: {{ (.Subrequest "sonarr").JSON.Int "totalRecords" }}</li>
+                  </ul>
+
+              - type: custom-api
+                title: Immich
+                cache: 1h
+                url: http://immich-server.immich.svc/api/server/statistics
+                headers:
+                  x-api-key: ${IMMICH_KEY}
+                  Accept: application/json
+                template: |
+                  <div class="flex justify-between text-center">
+                    <div><div class="color-highlight size-h3">{{ .JSON.Int "photos" | formatNumber }}</div><div class="size-h6">PHOTOS</div></div>
+                    <div><div class="color-highlight size-h3">{{ .JSON.Int "videos" | formatNumber }}</div><div class="size-h6">VIDEOS</div></div>
+                    <div><div class="color-highlight size-h3">{{ div (.JSON.Int "usage" | toFloat) 1073741824 | toInt | formatNumber }}GB</div><div class="size-h6">USAGE</div></div>
+                  </div>
+
+              - type: releases
+                cache: 6h
+                show-source-icon: true
+                token: ${GITHUB_TOKEN}
+                repositories:
+                  - siderolabs/talos
+                  - argoproj/argo-cd
+                  - jellyfin/jellyfin
+                  - immich-app/immich
+                  - ollama/ollama
+                  - open-webui/open-webui
+                  - glanceapp/glance
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: glance
+  namespace: glance
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: glance
+  template:
+    metadata:
+      labels:
+        app: glance
+    spec:
+      containers:
+        - name: glance
+          image: glanceapp/glance:v0.8.5
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - secretRef:
+                name: glance-secrets
+          volumeMounts:
+            - name: config
+              mountPath: /app/config
+              readOnly: true
+          resources:
+            requests: { cpu: 10m, memory: 32Mi }
+            limits:   { memory: 128Mi }
+      volumes:
+        - name: config
+          configMap:
+            name: glance
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: glance
+  namespace: glance
+spec:
+  selector:
+    app: glance
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: glance
+  namespace: glance
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: dash.home.sachaguerin.fr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: glance
+                port:
+                  number: 8080
