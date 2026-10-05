@@ -33,3 +33,13 @@ spec:
           persistentVolumeClaim: { claimName: icloud-photos }   # NFS TrueNAS
         - name: cookies
           persistentVolumeClaim: { claimName: icloudpd-cookies }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: icloudpd-cookies
+  namespace: immich
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn
+  resources: { requests: { storage: 100Mi } }
