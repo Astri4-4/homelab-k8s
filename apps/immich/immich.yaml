@@ -55,6 +55,49 @@ spec:
       storage: 1Ti
 ---
 apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: immich-icloud-smb
+spec:
+  capacity:
+    storage: 1Ti
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  mountOptions:
+    - dir_mode=0775
+    - file_mode=0664
+    - uid=1000
+    - gid=1000
+    - noperm
+    - mfsymlinks
+    - noserverino
+    - cache=strict
+    - vers=3.1.1
+  csi:
+    driver: smb.csi.k8s.io
+    volumeHandle: 192.168.10.33/Immich/icloud##immich-icloud
+    volumeAttributes:
+      source: //192.168.10.33/Immich
+      subDir: icloud
+    nodeStageSecretRef:
+      name: smb-immich
+      namespace: immich
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: icloud-photos
+  namespace: immich
+spec:
+  accessModes: [ReadWriteMany]
+  storageClassName: ""
+  volumeName: immich-icloud-smb
+  resources:
+    requests:
+      storage: 1Ti
+---
+apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: immich-postgres
