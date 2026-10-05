@@ -13,7 +13,7 @@ spec:
       containers:
         - name: icloudpd
           image: icloudpd/icloudpd:latest
-          command: ["sleep", "infinity"]
+          command: ["/app/icloudpd"]
           args:
             - --username=$(APPLE_ID)
             - --directory=/data
