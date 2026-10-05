@@ -234,7 +234,7 @@ spec:
           resources:
             requests: { cpu: 200m, memory: 1Gi }
             limits:
-              memory: 6Gi
+              memory: 10Gi
               nvidia.com/gpu: 1
           volumeMounts:
             - { name: cache, mountPath: /cache }
