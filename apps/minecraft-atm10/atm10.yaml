@@ -35,6 +35,8 @@ spec:
       terminationGracePeriodSeconds: 120
       securityContext:
         fsGroup: 1000
+      nodeSelector:
+        kubernetes.io/hostname: talosmaster
       containers:
         - name: mc
           image: ghcr.io/astri4-4/atm10:8.1
