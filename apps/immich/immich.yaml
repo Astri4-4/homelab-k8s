@@ -138,14 +138,11 @@ spec:
           volumeMounts:
             - { name: data, mountPath: /var/lib/postgresql/data }
             - { name: shm, mountPath: /dev/shm }
-            - { name: icloud, mountPath: /mnt/icloud, readOnly: true }
       volumes:
         - name: data
           persistentVolumeClaim: { claimName: immich-postgres }
         - name: shm
           emptyDir: { medium: Memory, sizeLimit: 128Mi }
-        - name: icloud
-          persistentVolumeClaim: { claimName: icloud-photos }
 ---
 apiVersion: v1
 kind: Service
@@ -302,9 +299,12 @@ spec:
             limits: { memory: 4Gi }
           volumeMounts:
             - { name: library, mountPath: /data }
+            - { name: icloud, mountPath: /mnt/icloud, readOnly: true }
       volumes:
         - name: library
           persistentVolumeClaim: { claimName: immich-library-nas }
+        - name: icloud
+          persistentVolumeClaim: { claimName: icloud-photos }
 ---
 apiVersion: v1
 kind: Service
