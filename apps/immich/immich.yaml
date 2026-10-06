@@ -325,6 +325,8 @@ spec:
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef: { name: immich-db, key: password }
+            - name: NVIDIA_DRIVER_CAPABILITIES
+              value: compute,video,utility
           readinessProbe:
             httpGet: { path: /api/server/ping, port: 2283 }
             initialDelaySeconds: 20
@@ -339,7 +341,7 @@ spec:
             failureThreshold: 5
           resources:
             requests: { cpu: 250m, memory: 512Mi }
-            limits: { memory: 4Gi }
+            limits: { memory: 8Gi }
           volumeMounts:
             - { name: library, mountPath: /data }
             - { name: icloud, mountPath: /mnt/icloud, readOnly: true }
