@@ -15,12 +15,18 @@ spec:
           image: icloudpd/icloudpd:latest
           command: ["/app/icloudpd"]
           args:
-            - --username=$(APPLE_ID)
-            - --directory=/data
-            - --cookie-directory=/cookies
-            - --folder-structure={:%Y/%m}
-            - --size=original
-            - --watch-with-interval=3600
+            - --username
+            - $(APPLE_ID)
+            - --directory
+            - /data
+            - --cookie-directory
+            - /cookies
+            - --folder-structure
+            - "{:%Y/%m}"
+            - --size
+            - original
+            - --watch-with-interval
+            - "3600"
             - --no-progress-bar
           env:
             - name: APPLE_ID
