@@ -37,6 +37,32 @@ spec:
         fsGroup: 1000
       nodeSelector:
         kubernetes.io/hostname: talosmaster
+      initContainers:
+        # Active RCON dans server.properties (requis par le sidecar de backup)
+        - name: enable-rcon
+          image: busybox:1.37
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+          env:
+            - name: RCON_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: atm10-rcon, key: RCON_PASSWORD }
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              f=/data/server.properties
+              [ -f "$f" ] || exit 0
+              set_prop() {
+                if grep -q "^$1=" "$f"; then sed -i "s|^$1=.*|$1=$2|" "$f"; else echo "$1=$2" >> "$f"; fi
+              }
+              set_prop enable-rcon true
+              set_prop rcon.port 25575
+              set_prop rcon.password "$RCON_PASSWORD"
+              set_prop broadcast-rcon-to-ops false
+          volumeMounts:
+            - name: data
+              mountPath: /data
       containers:
         - name: mc
           image: ghcr.io/astri4-4/atm10:8.1
@@ -79,10 +105,57 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data
+        # Backup a chaud : save-off / save-all flush / tar / save-on via RCON
+        - name: backup
+          image: itzg/mc-backup:latest
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+          env:
+            - name: TZ
+              value: Europe/Paris
+            - name: RCON_HOST
+              value: localhost
+            - name: RCON_PORT
+              value: "25575"
+            - name: RCON_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: atm10-rcon, key: RCON_PASSWORD }
+            - name: INITIAL_DELAY
+              value: 15m          # ATM10 met longtemps a demarrer
+            - name: BACKUP_INTERVAL
+              value: 6h
+            - name: PRUNE_BACKUPS_DAYS
+              value: "7"
+            - name: BACKUP_METHOD
+              value: tar
+            - name: TAR_COMPRESS_METHOD
+              value: zstd
+            - name: BACKUP_NAME
+              value: atm10
+            - name: SRC_DIR
+              value: /data
+            - name: DEST_DIR
+              value: /backups
+            # mods/libraries viennent de l'image ; sans .pack-version, le pack est
+            # redeploye automatiquement apres une restauration
+            - name: EXCLUDES
+              value: "*.jar,*.tmp,cache,logs,crash-reports,libraries,mods,.pack-version"
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits:   { memory: 512Mi }
+          volumeMounts:
+            - name: data
+              mountPath: /data
+              readOnly: true
+            - name: backups
+              mountPath: /backups
       volumes:
         - name: data
           persistentVolumeClaim:
             claimName: atm10-data
+        - name: backups
+          nfs: { server: 192.168.10.33, path: /mnt/Storage/minecraft-backups }
 ---
 apiVersion: v1
 kind: Service
@@ -99,3 +172,19 @@ spec:
       port: 25565
       targetPort: 25565
       nodePort: 30565
+---
+# RCON (25575) joignable uniquement en localhost dans le pod
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: atm10-only-game-port
+  namespace: minecraft
+spec:
+  podSelector:
+    matchLabels:
+      app: atm10
+  policyTypes: [Ingress]
+  ingress:
+    - ports:
+        - port: 25565
+          protocol: TCP
