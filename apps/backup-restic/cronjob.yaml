@@ -45,6 +45,7 @@ spec:
                 - { name: music, mountPath: /data/music, readOnly: true }
                 - { name: nc, mountPath: /data/nc, readOnly: true }
                 - { name: immich, mountPath: /data/immich, readOnly: true }
+                - { name: minecraft, mountPath: /data/minecraft, readOnly: true }
               resources:
                 requests: { cpu: 200m, memory: 256Mi }
                 limits:   { memory: 1Gi }
@@ -65,3 +66,5 @@ spec:
               nfs: { server: 192.168.10.33, path: /mnt/Storage/nextcloud, readOnly: true }
             - name: immich
               nfs: { server: 192.168.10.33, path: /mnt/Storage/immich, readOnly: true }
+            - name: minecraft
+              nfs: { server: 192.168.10.33, path: /mnt/Storage/minecraft-backups, readOnly: true }
