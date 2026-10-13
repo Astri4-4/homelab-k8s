@@ -44,6 +44,8 @@ spec:
             - { name: DEEMIX_URL, value: "http://deemix.media.svc.cluster.local:6595"}
             # "Supprimer les doublons" : partage Musique en écriture (music.yaml)
             - { name: MUSIC_DIR, value: /music }
+            # Dossier de deemix dans le partage (son subPath) : ses singles sont à sa racine
+            - { name: DEEMIX_FOLDER, value: Deezer }
           ports:
             - name: http
               containerPort: 8080
