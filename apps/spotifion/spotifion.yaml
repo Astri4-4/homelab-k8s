@@ -41,6 +41,7 @@ spec:
           env:
             # nginx proxifie /rest/ côté serveur -> Service interne de Navidrome
             - { name: NAVIDROME_URL, value: "http://navidrome.media.svc.cluster.local:4533" }
+            - { name: DEEMIX_URL, value: "http://deemix.media.svc.cluster.local:6595"}
           ports:
             - name: http
               containerPort: 8080
