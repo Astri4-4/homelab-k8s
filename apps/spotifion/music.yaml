@@ -1,0 +1,47 @@
+# Partage SMB TrueNAS "Musique", en lecture-écriture pour Spotifion
+# ("Supprimer les doublons" déplace les doublons dans son dossier caché
+# .spotifion-trash). Même partage que media/music (apps/music/storage.yaml),
+# mais un PVC ne sert que dans son namespace : second PV dédié.
+# Le Secret smb-music-creds reste dans media.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: music-smb-spotifion
+spec:
+  capacity:
+    storage: 1Ti
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  mountOptions:
+    - dir_mode=0775
+    - file_mode=0664
+    - uid=1000
+    - gid=1000
+    - vers=3.0
+    - noperm
+  csi:
+    driver: smb.csi.k8s.io
+    # Doit différer de celui de music-smb.
+    volumeHandle: truenas-musique-spotifion
+    volumeAttributes:
+      source: //192.168.10.33/Musique
+    nodeStageSecretRef:
+      name: smb-music-creds
+      namespace: media
+  claimRef:
+    name: music
+    namespace: spotifion
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: music
+  namespace: spotifion
+spec:
+  accessModes: [ReadWriteMany]
+  storageClassName: ""
+  volumeName: music-smb-spotifion
+  resources:
+    requests:
+      storage: 1Ti

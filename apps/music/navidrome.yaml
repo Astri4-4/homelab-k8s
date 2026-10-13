@@ -43,6 +43,9 @@ spec:
             - { name: ND_LOGLEVEL, value: info }
             - { name: ND_LISTENBRAINZ_ENABLED, value: "true" }
             - { name: ND_COVERARTPRIORITY, value: "embedded, cover.*, folder.*, front.*, external" }
+            # Vrais chemins de fichiers dans l'API Subsonic, pour que Spotifion
+            # retrouve les fichiers des doublons à supprimer.
+            - { name: ND_SUBSONIC_DEFAULTREPORTREALPATH, value: "true" }
             - { name: TZ, value: Europe/Paris }
           volumeMounts:
             - { name: data, mountPath: /data }

@@ -42,6 +42,8 @@ spec:
             # nginx proxifie /rest/ côté serveur -> Service interne de Navidrome
             - { name: NAVIDROME_URL, value: "http://navidrome.media.svc.cluster.local:4533" }
             - { name: DEEMIX_URL, value: "http://deemix.media.svc.cluster.local:6595"}
+            # "Supprimer les doublons" : partage Musique en écriture (music.yaml)
+            - { name: MUSIC_DIR, value: /music }
           ports:
             - name: http
               containerPort: 8080
@@ -64,10 +66,12 @@ spec:
             - { name: nginx-conf, mountPath: /etc/nginx/conf.d }
             - { name: tmp, mountPath: /tmp }
             - { name: nginx-cache, mountPath: /var/cache/nginx }
+            - { name: music, mountPath: /music }
       volumes:
         - { name: nginx-conf, emptyDir: {} }
         - { name: tmp, emptyDir: {} }
         - { name: nginx-cache, emptyDir: {} }
+        - { name: music, persistentVolumeClaim: { claimName: music } }
 ---
 apiVersion: v1
 kind: Service
