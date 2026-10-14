@@ -32,6 +32,11 @@ spec:
         runAsNonRoot: true
         runAsUser: 101
         runAsGroup: 101
+        # Rend le volume de données (Longhorn, créé en root) inscriptible
+        # par l'uid 101. Le partage SMB n'est pas touché : le driver SMB
+        # n'applique fsGroup qu'aux volumes ReadWriteOnce.
+        fsGroup: 101
+        fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -69,11 +74,14 @@ spec:
             - { name: tmp, mountPath: /tmp }
             - { name: nginx-cache, mountPath: /var/cache/nginx }
             - { name: music, mountPath: /music }
+            # Mixes, photos de profil + réglage Discover (data.yaml)
+            - { name: data, mountPath: /opt/jam/data }
       volumes:
         - { name: nginx-conf, emptyDir: {} }
         - { name: tmp, emptyDir: {} }
         - { name: nginx-cache, emptyDir: {} }
         - { name: music, persistentVolumeClaim: { claimName: music } }
+        - { name: data, persistentVolumeClaim: { claimName: spotifion-data } }
 ---
 apiVersion: v1
 kind: Service

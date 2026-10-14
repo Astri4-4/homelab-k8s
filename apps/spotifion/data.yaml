@@ -1,0 +1,14 @@
+# Données du serveur Jam (JAM_DATA_DIR = /opt/jam/data) : les Mixes, les
+# photos de profil (~30 Ko chacune) et le serveur deemix choisi dans
+# Réglages → Discover. Longhorn (StorageClass par défaut) en ReadWriteOnce
+# suffit : un seul pod (Recreate).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: spotifion-data
+  namespace: spotifion
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 100Mi
