@@ -1,0 +1,13 @@
+# Données du serveur Jam de la beta (JAM_DATA_DIR = /opt/jam/data), séparées
+# de la prod pour qu'une beta ne puisse pas abîmer ses Mixes, photos de
+# profil ou invitations.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: spotifion-beta-data
+  namespace: spotifion-beta
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 100Mi
