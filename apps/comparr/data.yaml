@@ -1,0 +1,157 @@
+# Postgres (PostGIS) + Redis (files BullMQ) + photos partagées web/worker.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: comparr
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: comparr-postgres
+  namespace: comparr
+spec:
+  clusterIP: None
+  selector: { app: comparr-postgres }
+  ports:
+    - { name: postgres, port: 5432 }
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: comparr-postgres
+  namespace: comparr
+spec:
+  serviceName: comparr-postgres
+  replicas: 1
+  selector:
+    matchLabels: { app: comparr-postgres }
+  template:
+    metadata:
+      labels: { app: comparr-postgres }
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        # uid de l'utilisateur postgres dans l'image officielle
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: postgres
+          image: postgis/postgis:16-3.4
+          ports:
+            - { name: postgres, containerPort: 5432 }
+          env:
+            - { name: POSTGRES_DB, value: comparr }
+            - { name: POSTGRES_USER, value: comparr }
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: comparr-secrets, key: POSTGRES_PASSWORD }
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "comparr", "-d", "comparr"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 1Gi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+            - { name: run, mountPath: /var/run/postgresql }
+      volumes:
+        - { name: run, emptyDir: {} }
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: longhorn
+        resources:
+          requests: { storage: 10Gi }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: comparr-redis
+  namespace: comparr
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn
+  resources:
+    requests: { storage: 1Gi }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: comparr-redis
+  namespace: comparr
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app: comparr-redis }
+  template:
+    metadata:
+      labels: { app: comparr-redis }
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          args: ["redis-server", "--appendonly", "yes", "--dir", "/data"]
+          ports:
+            - { name: redis, containerPort: 6379 }
+          readinessProbe:
+            exec: { command: ["redis-cli", "ping"] }
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 20m, memory: 32Mi }
+            limits: { memory: 256Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            - { name: data, mountPath: /data }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: comparr-redis }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: comparr-redis
+  namespace: comparr
+spec:
+  selector: { app: comparr-redis }
+  ports:
+    - { name: redis, port: 6379 }
+---
+# Photos d'étiquettes et de tickets : écrites par le web, lues par le worker.
+# RWX Longhorn (share-manager NFS) pour que les deux pods puissent tourner
+# sur des nœuds différents.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: comparr-uploads
+  namespace: comparr
+spec:
+  accessModes: [ReadWriteMany]
+  storageClassName: longhorn
+  resources:
+    requests: { storage: 10Gi }

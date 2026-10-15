@@ -1,0 +1,187 @@
+# Images construites par la CI du repo comparr (ghcr.io/astri4-4/comparr-*).
+# Le secret de pull se copie depuis spotifion :
+#   kubectl get secret ghcr -n spotifion -o json \
+#     | jq '.metadata = {name: "ghcr", namespace: "comparr"}' | kubectl apply -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: comparr-config
+  namespace: comparr
+data:
+  REDIS_URL: redis://comparr-redis:6379
+  UPLOADS_DIR: /uploads
+  # Ollama partagé (namespace ai, GPU). Ne jamais y télécharger de modèle depuis Comparr.
+  OLLAMA_URL: http://ollama.ai.svc.cluster.local:11434
+  OLLAMA_MODEL: gemma4:e4b
+  BETTER_AUTH_URL: https://comparr.sachaguerin.fr
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: comparr-web
+  namespace: comparr
+  labels: { app: comparr-web }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: comparr-web }
+  template:
+    metadata:
+      labels: { app: comparr-web }
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: ghcr
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: { type: RuntimeDefault }
+      initContainers:
+        # Migrations Drizzle (idempotentes) avant de démarrer le web.
+        - name: migrate
+          image: ghcr.io/astri4-4/comparr-worker:latest
+          imagePullPolicy: Always
+          command: ["node", "--import", "tsx", "src/migrate.ts"]
+          envFrom:
+            - secretRef: { name: comparr-secrets }
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 256Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      containers:
+        - name: web
+          image: ghcr.io/astri4-4/comparr-web:latest
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef: { name: comparr-config }
+            - secretRef: { name: comparr-secrets }
+          ports:
+            - { name: http, containerPort: 3000 }
+          readinessProbe:
+            httpGet: { path: /login, port: http }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /login, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          resources:
+            requests: { cpu: 50m, memory: 192Mi }
+            limits: { memory: 768Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            - { name: next-cache, mountPath: /app/apps/web/.next/cache }
+            - { name: uploads, mountPath: /uploads }
+      volumes:
+        - { name: tmp, emptyDir: {} }
+        - { name: next-cache, emptyDir: {} }
+        - name: uploads
+          persistentVolumeClaim: { claimName: comparr-uploads }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: comparr-worker
+  namespace: comparr
+  labels: { app: comparr-worker }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: comparr-worker }
+  template:
+    metadata:
+      labels: { app: comparr-worker }
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: ghcr
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: worker
+          image: ghcr.io/astri4-4/comparr-worker:latest
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef: { name: comparr-config }
+            - secretRef: { name: comparr-secrets }
+          resources:
+            # Playwright (scraping, phase 6) fera monter la mémoire.
+            requests: { cpu: 50m, memory: 192Mi }
+            limits: { memory: 1Gi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            - { name: uploads, mountPath: /uploads }
+      volumes:
+        - { name: tmp, emptyDir: {} }
+        - name: uploads
+          persistentVolumeClaim: { claimName: comparr-uploads }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: comparr-web
+  namespace: comparr
+spec:
+  selector: { app: comparr-web }
+  ports:
+    - { name: http, port: 3000, targetPort: http }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: comparr
+  namespace: comparr
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: comparr.home.sachaguerin.fr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: comparr-web, port: { number: 3000 } }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: comparr-public
+  namespace: comparr
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    # Photos de tickets / étiquettes
+    nginx.ingress.kubernetes.io/proxy-body-size: "15m"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [comparr.sachaguerin.fr]
+      secretName: comparr-tls
+  rules:
+    - host: comparr.sachaguerin.fr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: comparr-web, port: { number: 3000 } }
