@@ -45,6 +45,8 @@ spec:
           image: ghcr.io/astri4-4/comparr-worker:latest
           imagePullPolicy: Always
           command: ["node", "--import", "tsx", "src/migrate.ts"]
+          env:
+            - { name: HOME, value: /tmp }
           envFrom:
             - secretRef: { name: comparr-secrets }
           resources:
@@ -107,9 +109,10 @@ spec:
       imagePullSecrets:
         - name: ghcr
       securityContext:
+        # pwuser of the Playwright base image; fsGroup 1000 = group of the files the web pod writes.
         runAsNonRoot: true
-        runAsUser: 1000
-        runAsGroup: 1000
+        runAsUser: 1001
+        runAsGroup: 1001
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
         seccompProfile: { type: RuntimeDefault }
@@ -120,19 +123,25 @@ spec:
           envFrom:
             - configMapRef: { name: comparr-config }
             - secretRef: { name: comparr-secrets }
+          env:
+            # Chromium writes its profile and caches under $HOME: the root FS is read-only.
+            - { name: HOME, value: /tmp }
           resources:
-            # Playwright (scraping, phase 6) fera monter la mémoire.
-            requests: { cpu: 50m, memory: 192Mi }
-            limits: { memory: 1Gi }
+            # Chromium (scraping Auchan Drive) pendant les relevés.
+            requests: { cpu: 100m, memory: 384Mi }
+            limits: { memory: 2Gi }
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             capabilities: { drop: ["ALL"] }
           volumeMounts:
             - { name: tmp, mountPath: /tmp }
+            - { name: shm, mountPath: /dev/shm }
             - { name: uploads, mountPath: /uploads }
       volumes:
         - { name: tmp, emptyDir: {} }
+        # Chromium needs more shared memory than the container default (64 Mi).
+        - { name: shm, emptyDir: { medium: Memory, sizeLimit: 512Mi } }
         - name: uploads
           persistentVolumeClaim: { claimName: comparr-uploads }
 ---
