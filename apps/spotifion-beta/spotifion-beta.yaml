@@ -51,7 +51,7 @@ spec:
       containers:
         - name: spotifion
           # La beta à tester : ghcr.io/astri4-4/spotifiak:<version sans le v>
-          image: ghcr.io/astri4-4/spotifiak:0.9.3-3b
+          image: ghcr.io/astri4-4/spotifiak:0.9.3-4b
           imagePullPolicy: IfNotPresent
           env:
             - { name: NAVIDROME_URL, value: "http://navidrome.media.svc.cluster.local:4533" }
