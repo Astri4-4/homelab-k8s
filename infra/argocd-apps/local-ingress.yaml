@@ -1,20 +1,18 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: cloudflared
+  name: local-ingress
   namespace: argocd
 spec:
   project: default
   source:
     repoURL: https://github.com/Astri4-4/homelab-k8s.git
     targetRevision: master
-    path: apps/cloudflared
+    path: infra/local-ingress
   destination:
     server: https://kubernetes.default.svc
-    namespace: cloudflared
+    namespace: argocd
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
-    syncOptions:
-      - CreateNamespace=true

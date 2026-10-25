@@ -5,15 +5,14 @@ metadata:
   namespace: media
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
 spec:
-  ingressClassName: nginx
+  ingressClassName: traefik
   tls:
     - hosts:
-        - seerr.sachaguerin.fr
+        - seerr.home.sachaguerin.fr
       secretName: seerr-tls
   rules:
-    - host: seerr.sachaguerin.fr
+    - host: seerr.home.sachaguerin.fr
       http:
         paths:
           - path: /

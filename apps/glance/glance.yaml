@@ -128,8 +128,8 @@ data:
                 cache: 1m
                 style: compact
                 sites:
-                  - { title: Jellyfin,    url: https://jellyfin.sachaguerin.fr,         check-url: http://jellyfin.jellyfin.svc:8096/health,  icon: di:jellyfin }
-                  - { title: Open WebUI,  url: https://ai.sachaguerin.fr,               check-url: http://open-webui.ai.svc/health,      icon: di:open-webui }
+                  - { title: Jellyfin,    url: https://jellyfin.home.sachaguerin.fr,         check-url: http://jellyfin.jellyfin.svc:8096/health,  icon: di:jellyfin }
+                  - { title: Open WebUI,  url: https://ai.home.sachaguerin.fr,               check-url: http://open-webui.ai.svc/health,      icon: di:open-webui }
                   - { title: Immich,      url: https://immich.home.sachaguerin.fr,      check-url: http://immich-server.immich.svc/api/server/ping, icon: di:immich }
                   - { title: Paperless,   url: https://paperless.home.sachaguerin.fr,   check-url: http://paperless.paperless.svc,       icon: di:paperless-ngx }
                   - { title: n8n,         url: https://n8n.home.sachaguerin.fr,         check-url: http://n8n.n8n.svc:5678/healthz,           icon: di:n8n }
@@ -137,7 +137,7 @@ data:
                   - { title: Sonarr,      url: https://sonarr.home.sachaguerin.fr,      check-url: http://sonarr.media.svc:8989/ping,         icon: di:sonarr }
                   - { title: Prowlarr,    url: https://prowlarr.home.sachaguerin.fr,    check-url: http://prowlarr.media.svc:9696/ping,       icon: di:prowlarr }
                   - { title: qBittorrent, url: https://qbittorrent.home.sachaguerin.fr, check-url: http://qbittorrent.media.svc:8080,        icon: di:qbittorrent }
-                  - { title: ntfy,        url: https://ntfy.sachaguerin.fr,             check-url: http://ntfy.ntfy.svc:80/v1/health,         icon: di:ntfy }
+                  - { title: ntfy,        url: http://ntfy.home.sachaguerin.fr,             check-url: http://ntfy.ntfy.svc:80/v1/health,         icon: di:ntfy }
                   - { title: Grafana,     url: https://grafana.home.sachaguerin.fr,     check-url: http://monitoring-grafana.monitoring.svc/api/health, icon: di:grafana }
 
           # ───────── right ─────────

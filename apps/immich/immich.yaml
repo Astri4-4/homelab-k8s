@@ -362,34 +362,7 @@ spec:
     - port: 80
       targetPort: 2283
 ---
-# ---------- Exposition publique (cloudflared -> ingress-nginx) ----------
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: immich
-  namespace: immich
-  annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
-    nginx.ingress.kubernetes.io/proxy-body-size: "0"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
-    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
-spec:
-  ingressClassName: nginx
-  tls:
-    - hosts: [immich.sachaguerin.fr]
-      secretName: immich-tls
-  rules:
-    - host: immich.sachaguerin.fr
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service: { name: immich-server, port: { number: 80 } }
----
-# ---------- Accès LAN (Traefik) : contourne la limite d'upload 100 Mo de Cloudflare ----------
+# ---------- Accès LAN (Traefik) ----------
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:

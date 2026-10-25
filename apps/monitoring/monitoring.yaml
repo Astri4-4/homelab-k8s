@@ -36,6 +36,25 @@ spec:
                 port:
                   number: 9090
 ---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: alertmanager
+  namespace: monitoring
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: alertmanager.home.sachaguerin.fr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: monitoring-kube-prometheus-alertmanager
+                port:
+                  number: 9093
+---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:

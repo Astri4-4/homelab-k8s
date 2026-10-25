@@ -11,7 +11,7 @@ metadata:
   namespace: ntfy
 data:
   server.yml: |
-    base-url: "https://ntfy.sachaguerin.fr"
+    base-url: "http://ntfy.home.sachaguerin.fr"
     listen-http: ":80"
     behind-proxy: true
     cache-file: "/var/lib/ntfy/cache.db"

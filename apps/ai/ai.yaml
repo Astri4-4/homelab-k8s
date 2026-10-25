@@ -125,7 +125,7 @@ spec:
             - containerPort: 8080
           env:
             - { name: OLLAMA_BASE_URL, value: "http://ollama.ai.svc.cluster.local:11434" }
-            - { name: WEBUI_URL, value: "https://ai.sachaguerin.fr" }
+            - { name: WEBUI_URL, value: "https://ai.home.sachaguerin.fr" }
             - { name: ENABLE_OPENAI_API, value: "true" }
             - { name: OPENAI_API_BASE_URLS, value: "http://hermes-api.hermes.svc.cluster.local:8642/v1" }
             - name: OPENAI_API_KEYS
@@ -196,20 +196,35 @@ metadata:
   namespace: ai
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
-    nginx.ingress.kubernetes.io/proxy-body-size: "0"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
 spec:
-  ingressClassName: nginx
+  ingressClassName: traefik
   tls:
-    - hosts: [ai.sachaguerin.fr]
+    - hosts: [ai.home.sachaguerin.fr]
       secretName: ai-sachaguerin-tls
   rules:
-    - host: ai.sachaguerin.fr
+    - host: ai.home.sachaguerin.fr
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service: { name: open-webui, port: { number: 80 } }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ollama
+  namespace: ai
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: ollama.home.sachaguerin.fr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ollama
+                port:
+                  number: 11434
