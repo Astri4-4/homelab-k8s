@@ -18,8 +18,10 @@ data:
   DEEZER_ENRICH: "true"
   # Le premier compte créé devient admin ; ensuite l'admin crée les comptes.
   ALLOW_SIGNUP: "false"
-  # Import Spotify : n'est actif que si SPOTIFY_CLIENT_ID/SECRET sont dans le secret.
-  SPOTIFY_REDIRECT_URI: https://spotifiak.sachaguerin.fr/api/spotify/callback
+  # Import Spotify désactivé : Spotify n'accepte une adresse de retour en HTTP que
+  # pour 127.0.0.1. Avec HTTPS sur spotifiak.home.sachaguerin.fr, ajouter
+  # SPOTIFY_REDIRECT_URI: https://spotifiak.home.sachaguerin.fr/api/spotify/callback
+  # et SPOTIFY_CLIENT_ID/SECRET dans le secret.
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -164,34 +166,6 @@ spec:
   ingressClassName: traefik
   rules:
     - host: spotifiak.home.sachaguerin.fr
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service: { name: spotifiak-web, port: { number: 8080 } }
----
-# Public, en HTTPS : nécessaire pour l'import Spotify (Spotify n'accepte une
-# adresse de retour en HTTP que pour 127.0.0.1) et pour "Inviter" dans une Jam.
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: spotifiak-public
-  namespace: spotifiak
-  annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
-    # SSE (Jam) + flux audio : pas de buffering, timeouts longs
-    nginx.ingress.kubernetes.io/proxy-buffering: "off"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-spec:
-  ingressClassName: nginx
-  tls:
-    - hosts: [spotifiak.sachaguerin.fr]
-      secretName: spotifiak-tls
-  rules:
-    - host: spotifiak.sachaguerin.fr
       http:
         paths:
           - path: /
