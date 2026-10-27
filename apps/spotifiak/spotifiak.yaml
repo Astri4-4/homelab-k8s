@@ -21,6 +21,20 @@ data:
   # Import Spotify : n'est actif que si SPOTIFY_CLIENT_ID/SECRET sont dans le secret.
   # Adresse publique HTTPS via le tunnel Cloudflare (apps/cloudflared).
   SPOTIFY_REDIRECT_URI: https://spotifiak.sachaguerin.fr/api/spotify/callback
+  # Son des vidéos YouTube ajoutées aux podcasts créés dans Spotifiak (PVC podcasts).
+  PODCAST_DIR: /podcasts
+---
+# Son téléchargé (yt-dlp) des vidéos YouTube des podcasts créés.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: podcasts
+  namespace: spotifiak
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn
+  resources:
+    requests: { storage: 20Gi }
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -47,6 +61,9 @@ spec:
         runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 1000
+        # Rend le volume Longhorn des podcasts inscriptible par node.
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
         seccompProfile: { type: RuntimeDefault }
       containers:
         - name: api
@@ -82,10 +99,13 @@ spec:
           volumeMounts:
             - { name: tmp, mountPath: /tmp }
             - { name: music, mountPath: /music }
+            - { name: podcasts, mountPath: /podcasts }
       volumes:
         - { name: tmp, emptyDir: {} }
         - name: music
           persistentVolumeClaim: { claimName: music }
+        - name: podcasts
+          persistentVolumeClaim: { claimName: podcasts }
 ---
 # Nommé "api" : c'est l'hôte que le nginx du web proxifie (frontend/nginx.conf).
 apiVersion: v1
