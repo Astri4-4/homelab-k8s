@@ -18,10 +18,9 @@ data:
   DEEZER_ENRICH: "true"
   # Le premier compte créé devient admin ; ensuite l'admin crée les comptes.
   ALLOW_SIGNUP: "false"
-  # Import Spotify désactivé : Spotify n'accepte une adresse de retour en HTTP que
-  # pour 127.0.0.1. Avec HTTPS sur spotifiak.home.sachaguerin.fr, ajouter
-  # SPOTIFY_REDIRECT_URI: https://spotifiak.home.sachaguerin.fr/api/spotify/callback
-  # et SPOTIFY_CLIENT_ID/SECRET dans le secret.
+  # Import Spotify : n'est actif que si SPOTIFY_CLIENT_ID/SECRET sont dans le secret.
+  # Adresse publique HTTPS via le tunnel Cloudflare (apps/cloudflared).
+  SPOTIFY_REDIRECT_URI: https://spotifiak.sachaguerin.fr/api/spotify/callback
 ---
 apiVersion: apps/v1
 kind: Deployment

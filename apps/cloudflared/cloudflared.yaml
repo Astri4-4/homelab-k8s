@@ -1,0 +1,38 @@
+# Tunnel Cloudflare géré depuis le dashboard (Zero Trust > Networks > Tunnels) :
+# les noms publics y sont routés directement vers les Services, ingress-nginx n'existe plus.
+#   spotifiak.sachaguerin.fr -> http://spotifiak-web.spotifiak.svc.cluster.local:8080
+# Le Secret cloudflared-token (clé "token") se crée hors git :
+#   kubectl create secret generic cloudflared-token -n cloudflared --from-literal=token=<TOKEN>
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cloudflared
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudflared
+  namespace: cloudflared
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cloudflared
+  template:
+    metadata:
+      labels:
+        app: cloudflared
+    spec:
+      containers:
+        - name: cloudflared
+          image: cloudflare/cloudflared:latest
+          args:
+            - tunnel
+            - --no-autoupdate
+            - run
+          env:
+            - name: TUNNEL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: cloudflared-token
+                  key: token
