@@ -83,7 +83,7 @@ spec:
               name: http
           env:
             - name: JELLYFIN_PublishedServerUrl
-              value: "https://jellyfin.sachaguerin.fr"
+              value: "https://jellyfin.home.sachaguerin.fr"
             - name: NVIDIA_VISIBLE_DEVICES
               value: all
             - name: NVIDIA_DRIVER_CAPABILITIES
@@ -138,19 +138,14 @@ metadata:
   namespace: jellyfin
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
-    nginx.ingress.kubernetes.io/proxy-body-size: "0"
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
-    nginx.ingress.kubernetes.io/proxy-buffering: "off"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
 spec:
-  ingressClassName: nginx
+  ingressClassName: traefik
   tls:
     - hosts:
-        - jellyfin.sachaguerin.fr
+        - jellyfin.home.sachaguerin.fr
       secretName: jellyfin-tls
   rules:
-    - host: jellyfin.sachaguerin.fr
+    - host: jellyfin.home.sachaguerin.fr
       http:
         paths:
           - path: /

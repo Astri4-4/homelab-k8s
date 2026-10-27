@@ -38,7 +38,7 @@ spec:
             - containerPort: 80
           env:
             - name: DOMAIN
-              value: "https://vaultwarden.sachaguerin.fr"
+              value: "https://vaultwarden.home.sachaguerin.fr"
             - name: SIGNUPS_ALLOWED
               value: "false"
           volumeMounts:
@@ -68,16 +68,14 @@ metadata:
   namespace: vaultwarden
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
-    nginx.ingress.kubernetes.io/proxy-body-size: "0"
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
 spec:
-  ingressClassName: nginx
+  ingressClassName: traefik
   tls:
     - hosts:
-        - vaultwarden.sachaguerin.fr
+        - vaultwarden.home.sachaguerin.fr
       secretName: vaultwarden-tls
   rules:
-    - host: vaultwarden.sachaguerin.fr
+    - host: vaultwarden.home.sachaguerin.fr
       http:
         paths:
           - path: /

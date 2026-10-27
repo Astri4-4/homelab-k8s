@@ -43,8 +43,8 @@ spec:
           env:
             - { name: GITEA__database__DB_TYPE, value: sqlite3 }
             - { name: GITEA__database__PATH, value: /var/lib/gitea/data/gitea.db }
-            - { name: GITEA__server__DOMAIN, value: git.sachaguerin.fr }
-            - { name: GITEA__server__ROOT_URL, value: https://git.sachaguerin.fr/ }
+            - { name: GITEA__server__DOMAIN, value: git.home.sachaguerin.fr }
+            - { name: GITEA__server__ROOT_URL, value: https://git.home.sachaguerin.fr/ }
             - { name: GITEA__server__HTTP_PORT, value: "3000" }
             - { name: GITEA__server__SSH_DOMAIN, value: git.home.sachaguerin.fr }
             - { name: GITEA__server__SSH_PORT, value: "30022" }
@@ -103,17 +103,13 @@ metadata:
   namespace: gitea
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
-    nginx.ingress.kubernetes.io/proxy-body-size: "0"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
 spec:
-  ingressClassName: nginx
+  ingressClassName: traefik
   tls:
-    - hosts: [git.sachaguerin.fr]
+    - hosts: [git.home.sachaguerin.fr]
       secretName: gitea-tls
   rules:
-    - host: git.sachaguerin.fr
+    - host: git.home.sachaguerin.fr
       http:
         paths:
           - path: /

@@ -41,3 +41,22 @@ spec:
   selector: { app: skooner }
   ports:
     - { name: http, port: 80, targetPort: 4654, nodePort: 30465 }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: skooner
+  namespace: skooner
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: skooner.home.sachaguerin.fr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: skooner
+                port:
+                  number: 80

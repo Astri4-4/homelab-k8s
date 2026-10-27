@@ -121,17 +121,13 @@ metadata:
   namespace: obsidian-livesync
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
-    nginx.ingress.kubernetes.io/proxy-body-size: "0"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
 spec:
-  ingressClassName: nginx
+  ingressClassName: traefik
   tls:
-    - hosts: [obsidian.sachaguerin.fr]
+    - hosts: [obsidian.home.sachaguerin.fr]
       secretName: obsidian-livesync-tls
   rules:
-    - host: obsidian.sachaguerin.fr
+    - host: obsidian.home.sachaguerin.fr
       http:
         paths:
           - path: /

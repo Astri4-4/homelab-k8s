@@ -150,7 +150,7 @@ spec:
             - name: REDIS_HOST
               value: redis
             - name: NEXTCLOUD_TRUSTED_DOMAINS
-              value: "nc.sachaguerin.fr"
+              value: "nc.home.sachaguerin.fr"
             - name: OVERWRITEPROTOCOL
               value: "https"
           ports:
@@ -206,16 +206,14 @@ metadata:
   namespace: nextcloud
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
-    nginx.ingress.kubernetes.io/proxy-body-size: "0"
 spec:
-  ingressClassName: nginx
+  ingressClassName: traefik
   tls:
     - hosts:
-        - nc.sachaguerin.fr
+        - nc.home.sachaguerin.fr
       secretName: nextcloud-tls
   rules:
-    - host: nc.sachaguerin.fr
+    - host: nc.home.sachaguerin.fr
       http:
         paths:
           - path: /

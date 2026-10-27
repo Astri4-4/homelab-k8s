@@ -114,30 +114,3 @@ spec:
             pathType: Prefix
             backend:
               service: { name: spotifion-beta, port: { number: 8080 } }
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: spotifion-beta-public
-  namespace: spotifion-beta
-  annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
-    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
-    # SSE (Jam) + streams audio : pas de buffering, timeouts longs
-    nginx.ingress.kubernetes.io/proxy-buffering: "off"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-spec:
-  ingressClassName: nginx
-  tls:
-    - hosts: [spotifion-beta.sachaguerin.fr]
-      secretName: spotifion-beta-tls
-  rules:
-    - host: spotifion-beta.sachaguerin.fr
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service: { name: spotifion-beta, port: { number: 8080 } }

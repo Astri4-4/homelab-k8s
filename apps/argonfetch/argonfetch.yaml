@@ -83,27 +83,3 @@ spec:
               service:
                 name: argonfetch
                 port: { number: 8080 }
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: argonfetch-public
-  namespace: argonfetch
-  annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
-    nginx.ingress.kubernetes.io/proxy-body-size: "0"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-spec:
-  ingressClassName: nginx
-  tls:
-    - hosts: [argonfetch.sachaguerin.fr]
-      secretName: argonfetch-tls
-  rules:
-    - host: argonfetch.sachaguerin.fr
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service: { name: argonfetch, port: { number: 8080 } }
