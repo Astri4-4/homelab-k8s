@@ -1,0 +1,46 @@
+# Partage SMB TrueNAS "Musique", en lecture-écriture pour Spotifiak : deemix
+# (media/deemix) y télécharge dans Deezer/, et "Doublons" (page Analyse) y
+# supprime des fichiers. Même partage que media/music, mais un PVC ne sert que
+# dans son namespace : PV dédié. Le Secret smb-music-creds reste dans media.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: music-smb-spotifiak
+spec:
+  capacity:
+    storage: 1Ti
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  mountOptions:
+    - dir_mode=0775
+    - file_mode=0664
+    - uid=1000
+    - gid=1000
+    - vers=3.0
+    - noperm
+  csi:
+    driver: smb.csi.k8s.io
+    # Doit différer de ceux des autres PV du même partage.
+    volumeHandle: truenas-musique-spotifiak
+    volumeAttributes:
+      source: //192.168.10.33/Musique
+    nodeStageSecretRef:
+      name: smb-music-creds
+      namespace: media
+  claimRef:
+    name: music
+    namespace: spotifiak
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: music
+  namespace: spotifiak
+spec:
+  accessModes: [ReadWriteMany]
+  storageClassName: ""
+  volumeName: music-smb-spotifiak
+  resources:
+    requests:
+      storage: 1Ti

@@ -1,0 +1,200 @@
+# Spotifiak : API (Fastify) + web (nginx qui sert le front et proxifie /api vers l'API).
+# Images construites par la CI du repo spotifiak-v2 (ghcr.io/astri4-4/spotifiak-*).
+# Le secret de pull se copie depuis spotifion :
+#   kubectl get secret ghcr -n spotifion -o json \
+#     | jq '.metadata = {name: "ghcr", namespace: "spotifiak"}' | kubectl apply -f -
+# Secrets (sealed-secret.yaml) : voir l'en-tête de ce fichier-là.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spotifiak-config
+  namespace: spotifiak
+data:
+  MUSIC_DIR: /music
+  # deemix du namespace media (apps/music/deemix.yaml) : il télécharge dans Deezer/ du même partage.
+  DEEMIX_URL: http://deemix.media.svc.cluster.local:6595
+  SCAN_INTERVAL_SEC: "300"
+  FULL_SCAN_INTERVAL_HOURS: "24"
+  DEEZER_ENRICH: "true"
+  # Le premier compte créé devient admin ; ensuite l'admin crée les comptes.
+  ALLOW_SIGNUP: "false"
+  # Import Spotify : n'est actif que si SPOTIFY_CLIENT_ID/SECRET sont dans le secret.
+  SPOTIFY_REDIRECT_URI: https://spotifiak.sachaguerin.fr/api/spotify/callback
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spotifiak-api
+  namespace: spotifiak
+  labels: { app: spotifiak-api }
+spec:
+  # Une seule instance, et jamais deux à la fois (Recreate) : les Jams, le scanner
+  # et les connexions Spotify en cours vivent en mémoire de l'API.
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app: spotifiak-api }
+  template:
+    metadata:
+      labels: { app: spotifiak-api }
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: ghcr
+      securityContext:
+        # node de l'image node:24-slim ; mêmes uid/gid que le montage SMB (music.yaml).
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: api
+          image: ghcr.io/astri4-4/spotifiak-api:latest
+          imagePullPolicy: Always
+          # L'image applique les migrations Prisma puis démarre (voir backend/Dockerfile).
+          envFrom:
+            - configMapRef: { name: spotifiak-config }
+            - secretRef: { name: spotifiak-secrets }
+          env:
+            # npx écrit son cache sous $HOME : le système de fichiers est en lecture seule.
+            - { name: HOME, value: /tmp }
+          ports:
+            - { name: http, containerPort: 3000 }
+          startupProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 30
+          resources:
+            # Le scan complet de la bibliothèque (~13 000 fichiers) lit les tags en parallèle.
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 1Gi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            - { name: music, mountPath: /music }
+      volumes:
+        - { name: tmp, emptyDir: {} }
+        - name: music
+          persistentVolumeClaim: { claimName: music }
+---
+# Nommé "api" : c'est l'hôte que le nginx du web proxifie (frontend/nginx.conf).
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: spotifiak
+spec:
+  selector: { app: spotifiak-api }
+  ports:
+    - { name: http, port: 3000, targetPort: http }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spotifiak-web
+  namespace: spotifiak
+  labels: { app: spotifiak-web }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: spotifiak-web }
+  template:
+    metadata:
+      labels: { app: spotifiak-web }
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: ghcr
+      securityContext:
+        # nginx de l'image nginx-unprivileged
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: web
+          image: ghcr.io/astri4-4/spotifiak-web:latest
+          imagePullPolicy: Always
+          ports:
+            - { name: http, containerPort: 8080 }
+          readinessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 30
+          resources:
+            requests: { cpu: 20m, memory: 32Mi }
+            limits: { memory: 128Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            # pid et fichiers temporaires de nginx
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - { name: tmp, emptyDir: {} }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spotifiak-web
+  namespace: spotifiak
+spec:
+  selector: { app: spotifiak-web }
+  ports:
+    - { name: http, port: 8080, targetPort: http }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: spotifiak
+  namespace: spotifiak
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: spotifiak.home.sachaguerin.fr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: spotifiak-web, port: { number: 8080 } }
+---
+# Public, en HTTPS : nécessaire pour l'import Spotify (Spotify n'accepte une
+# adresse de retour en HTTP que pour 127.0.0.1) et pour "Inviter" dans une Jam.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: spotifiak-public
+  namespace: spotifiak
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    # SSE (Jam) + flux audio : pas de buffering, timeouts longs
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [spotifiak.sachaguerin.fr]
+      secretName: spotifiak-tls
+  rules:
+    - host: spotifiak.sachaguerin.fr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: spotifiak-web, port: { number: 8080 } }

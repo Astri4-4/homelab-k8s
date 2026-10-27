@@ -1,0 +1,78 @@
+# Spotifiak (github.com/Astri4-4/spotifiak-v2) : namespace et Postgres.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: spotifiak
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spotifiak-postgres
+  namespace: spotifiak
+spec:
+  clusterIP: None
+  selector: { app: spotifiak-postgres }
+  ports:
+    - { name: postgres, port: 5432 }
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: spotifiak-postgres
+  namespace: spotifiak
+spec:
+  serviceName: spotifiak-postgres
+  replicas: 1
+  selector:
+    matchLabels: { app: spotifiak-postgres }
+  template:
+    metadata:
+      labels: { app: spotifiak-postgres }
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        # uid de l'utilisateur postgres dans l'image officielle (Debian)
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: postgres
+          image: postgres:17
+          ports:
+            - { name: postgres, containerPort: 5432 }
+          env:
+            - { name: POSTGRES_DB, value: spotifiak }
+            - { name: POSTGRES_USER, value: spotifiak }
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: spotifiak-secrets, key: POSTGRES_PASSWORD }
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "spotifiak", "-d", "spotifiak"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 1Gi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+            - { name: run, mountPath: /var/run/postgresql }
+      volumes:
+        - { name: run, emptyDir: {} }
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: longhorn
+        resources:
+          requests: { storage: 5Gi }
