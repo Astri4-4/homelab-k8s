@@ -1,0 +1,93 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: games
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: lancommander-data
+  namespace: games
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lancommander
+  namespace: games
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: lancommander
+  template:
+    metadata:
+      labels:
+        app: lancommander
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      nodeSelector:
+        kubernetes.io/hostname: talosnode1
+      containers:
+        - name: lancommander
+          image: lancommander/lancommander:latest
+          env:
+            - { name: PUID, value: "1000" }
+            - { name: PGID, value: "1000" }
+            - { name: TZ, value: Europe/Paris }
+          ports:
+            - { name: http,   containerPort: 1337,  protocol: TCP }
+            - { name: beacon, containerPort: 35891, protocol: UDP }
+            - { name: ipx,    containerPort: 213,   protocol: UDP }
+          volumeMounts:
+            - { name: data,  mountPath: /app/Data }
+            - { name: games, mountPath: /games }
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits:   { memory: 2Gi }
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: lancommander-data
+        - name: games
+          nfs:
+            server: 192.168.10.33
+            path: /mnt/Storage/Games
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lancommander
+  namespace: games
+spec:
+  selector:
+    app: lancommander
+  ports:
+    - { name: http, port: 1337, targetPort: 1337 }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: lancommander
+  namespace: games
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: lancommander.home.sachaguerin.fr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: lancommander
+                port:
+                  number: 1337

@@ -1,0 +1,17 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: lancommander
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Astri4-4/homelab-k8s
+    targetRevision: master
+    path: apps/lancommander
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: games
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true]
