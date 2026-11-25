@@ -51,7 +51,7 @@ spec:
             - { name: ipx,    containerPort: 213,   protocol: UDP }
           volumeMounts:
             - { name: data,  mountPath: /app/Data }
-            - { name: games, mountPath: /games }
+            - { name: games, mountPath: /app/Data/Uploads }  # game archives live on the NAS
           resources:
             requests: { cpu: 100m, memory: 256Mi }
             limits:   { memory: 2Gi }
